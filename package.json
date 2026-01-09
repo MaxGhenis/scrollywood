@@ -1,0 +1,20 @@
+{
+  "name": "scrollywood",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "One-click smooth scroll video recording Chrome extension",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build": "node scripts/build.js"
+  },
+  "devDependencies": {
+    "vitest": "^2.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/maxghenis/scrollywood.git"
+  },
+  "author": "Max Ghenis",
+  "license": "MIT"
+}

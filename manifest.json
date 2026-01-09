@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "Scrollywood",
+  "version": "1.0",
+  "description": "One-click smooth scroll video recording of any webpage",
+  "permissions": [
+    "activeTab",
+    "tabCapture",
+    "downloads",
+    "scripting",
+    "offscreen"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

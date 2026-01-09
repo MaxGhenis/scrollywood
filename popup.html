@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 280px;
+      font-family: 'Quicksand', sans-serif;
+      background: #0a0a0f;
+      color: #f5f0e8;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Film grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* Art deco border frame */
+    .frame {
+      position: relative;
+      padding: 20px 16px;
+      background: linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%);
+    }
+
+    .frame::before {
+      content: '';
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      border: 1px solid #c9a227;
+      pointer-events: none;
+      opacity: 0.4;
+    }
+
+    /* Film perforations */
+    .perforations {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-around;
+      padding: 16px 0;
+    }
+
+    .perforations.left { left: 0; }
+    .perforations.right { right: 0; }
+
+    .perf {
+      width: 6px;
+      height: 10px;
+      background: #1a1a24;
+      border-radius: 1px;
+      margin: 0 auto;
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .header::after {
+      content: '';
+      display: block;
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, #c9a227, transparent);
+      margin: 12px auto 0;
+    }
+
+    .logo {
+      font-family: 'Cinzel', serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 0.15em;
+      background: linear-gradient(180deg, #f4d03f 0%, #c9a227 50%, #8b6914 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      text-shadow: 0 2px 20px rgba(201, 162, 39, 0.3);
+    }
+
+    .tagline {
+      font-size: 9px;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #6b6b7b;
+      margin-top: 4px;
+    }
+
+    /* Settings */
+    .settings {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .setting {
+      position: relative;
+    }
+
+    .setting-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: #8b8b9b;
+      margin-bottom: 6px;
+    }
+
+    .setting-label::before {
+      content: '◆';
+      font-size: 6px;
+      color: #c9a227;
+    }
+
+    .input-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .input-wrap input {
+      width: 100%;
+      padding: 10px 40px 10px 14px;
+      font-family: 'Quicksand', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      color: #f5f0e8;
+      background: #12121c;
+      border: 1px solid #2a2a3a;
+      border-radius: 4px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    .input-wrap input:focus {
+      border-color: #c9a227;
+      box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.15);
+    }
+
+    .input-wrap input::-webkit-inner-spin-button,
+    .input-wrap input::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+    }
+
+    .input-unit {
+      position: absolute;
+      right: 12px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #4a4a5a;
+      letter-spacing: 0.05em;
+    }
+
+    /* Record button - clapperboard inspired */
+    .record-btn {
+      width: 100%;
+      position: relative;
+      padding: 14px 20px;
+      font-family: 'Cinzel', serif;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #0a0a0f;
+      background: linear-gradient(180deg, #f4d03f 0%, #c9a227 100%);
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      box-shadow:
+        0 4px 15px rgba(201, 162, 39, 0.3),
+        inset 0 1px 0 rgba(255,255,255,0.3);
+    }
+
+    .record-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      transition: left 0.5s ease;
+    }
+
+    .record-btn:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        0 6px 20px rgba(201, 162, 39, 0.4),
+        inset 0 1px 0 rgba(255,255,255,0.3);
+    }
+
+    .record-btn:hover::before {
+      left: 100%;
+    }
+
+    .record-btn:active {
+      transform: translateY(0);
+    }
+
+    .record-btn:disabled {
+      background: #2a2a3a;
+      color: #5a5a6a;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .record-btn:disabled::before {
+      display: none;
+    }
+
+    .btn-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .rec-icon {
+      width: 10px;
+      height: 10px;
+      background: #c41e3a;
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(196, 30, 58, 0.6);
+    }
+
+    .record-btn:disabled .rec-icon {
+      background: #4a4a5a;
+      box-shadow: none;
+    }
+
+    /* Status */
+    .status {
+      margin-top: 14px;
+      min-height: 18px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 500;
+      color: #6b6b7b;
+      letter-spacing: 0.05em;
+    }
+
+    .status.recording {
+      color: #c41e3a;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Footer decoration */
+    .footer-deco {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      opacity: 0.3;
+    }
+
+    .footer-deco span {
+      font-size: 8px;
+      color: #c9a227;
+    }
+
+    .footer-line {
+      width: 30px;
+      height: 1px;
+      background: linear-gradient(90deg, #c9a227, transparent);
+    }
+
+    .footer-line:last-child {
+      background: linear-gradient(90deg, transparent, #c9a227);
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <!-- Film perforations -->
+    <div class="perforations left">
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+    </div>
+    <div class="perforations right">
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+      <div class="perf"></div>
+    </div>
+
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">Scrollywood</div>
+      <div class="tagline">Smooth Scroll Cinema</div>
+    </div>
+
+    <!-- Settings -->
+    <div class="settings">
+      <div class="setting">
+        <label class="setting-label">Scroll Duration</label>
+        <div class="input-wrap">
+          <input type="number" id="duration" value="60" min="5" max="300">
+          <span class="input-unit">sec</span>
+        </div>
+      </div>
+
+      <div class="setting">
+        <label class="setting-label">Delay Before Roll</label>
+        <div class="input-wrap">
+          <input type="number" id="delay" value="2" min="0" max="10">
+          <span class="input-unit">sec</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Record Button -->
+    <button id="recordBtn" class="record-btn">
+      <span class="btn-content">
+        <span class="rec-icon"></span>
+        <span>Action</span>
+      </span>
+    </button>
+
+    <!-- Status -->
+    <div id="status" class="status"></div>
+
+    <!-- Footer decoration -->
+    <div class="footer-deco">
+      <div class="footer-line"></div>
+      <span>★</span>
+      <div class="footer-line"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
