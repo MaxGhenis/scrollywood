@@ -31,26 +31,49 @@ async function startCapture(streamId, tabId, duration, delay) {
     });
 
     mediaRecorder.ondataavailable = (event) => {
+      console.log('Data available:', event.data.size, 'bytes');
       if (event.data.size > 0) {
         recordedChunks.push(event.data);
       }
     };
 
     mediaRecorder.onstop = async () => {
+      console.log('MediaRecorder stopped, chunks:', recordedChunks.length);
       stream.getTracks().forEach(track => track.stop());
 
       const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      console.log('Blob size:', blob.size, 'bytes');
+
+      if (blob.size === 0) {
+        console.error('Empty recording - no data captured');
+        chrome.runtime.sendMessage({ action: 'recordingComplete' });
+        return;
+      }
+
       const url = URL.createObjectURL(blob);
+      console.log('Blob URL:', url);
 
       // Download the video
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      await chrome.downloads.download({
-        url: url,
-        filename: `scrollywood-${timestamp}.webm`,
-        saveAs: true,
-      });
+      const filename = `scrollywood-${timestamp}.webm`;
+      console.log('Downloading as:', filename);
+
+      try {
+        const downloadId = await chrome.downloads.download({
+          url: url,
+          filename: filename,
+          saveAs: true,
+        });
+        console.log('Download started, ID:', downloadId);
+      } catch (err) {
+        console.error('Download error:', err);
+      }
 
       chrome.runtime.sendMessage({ action: 'recordingComplete' });
+    };
+
+    mediaRecorder.onerror = (event) => {
+      console.error('MediaRecorder error:', event.error);
     };
 
     // Start recording
@@ -60,29 +83,12 @@ async function startCapture(streamId, tabId, duration, delay) {
     // Wait for initial delay
     await sleep(delay * 1000);
 
-    // Inject scroll script
-    console.log('Starting scroll...');
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      func: (scrollDuration) => {
-        const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
-        const startTime = Date.now();
-        const endTime = startTime + (scrollDuration * 1000);
-
-        function smoothScroll() {
-          const now = Date.now();
-          if (now >= endTime) return;
-
-          const progress = (now - startTime) / (scrollDuration * 1000);
-          const targetY = totalHeight * progress;
-          window.scrollTo({ top: targetY, behavior: 'instant' });
-
-          requestAnimationFrame(smoothScroll);
-        }
-
-        smoothScroll();
-      },
-      args: [duration],
+    // Ask service worker to inject scroll script (scripting API not available in offscreen)
+    console.log('Requesting scroll injection...');
+    chrome.runtime.sendMessage({
+      action: 'injectScroll',
+      tabId,
+      duration,
     });
 
     // Wait for scroll to complete plus extra time at the end

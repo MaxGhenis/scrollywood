@@ -6,9 +6,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     startRecording(message.tabId, message.duration, message.delay);
     sendResponse({ status: 'started' });
   }
+  if (message.action === 'injectScroll') {
+    injectScrollScript(message.tabId, message.duration);
+    sendResponse({ status: 'injected' });
+  }
   if (message.action === 'recordingComplete') {
     handleRecordingComplete();
     console.log('Recording saved!');
   }
   return true;
 });
+
+// Inject scroll script into target tab (called by offscreen document)
+async function injectScrollScript(tabId, duration) {
+  try {
+    console.log('Injecting scroll script for', duration, 'seconds');
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      func: (scrollDuration) => {
+        const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+        const startTime = Date.now();
+        const endTime = startTime + (scrollDuration * 1000);
+
+        function smoothScroll() {
+          const now = Date.now();
+          if (now >= endTime) return;
+
+          const progress = (now - startTime) / (scrollDuration * 1000);
+          const targetY = totalHeight * progress;
+          window.scrollTo({ top: targetY, behavior: 'instant' });
+
+          requestAnimationFrame(smoothScroll);
+        }
+
+        smoothScroll();
+      },
+      args: [duration],
+    });
+  } catch (error) {
+    console.error('Failed to inject scroll script:', error);
+  }
+}
