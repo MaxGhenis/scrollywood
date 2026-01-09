@@ -50,26 +50,26 @@ async function startCapture(streamId, tabId, duration, delay) {
         return;
       }
 
-      const url = URL.createObjectURL(blob);
-      console.log('Blob URL:', url);
+      // Convert blob to base64 and send to service worker for download
+      // (chrome.downloads API not available in offscreen documents)
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        console.log('Sending blob to service worker for download, size:', base64data.length);
 
-      // Download the video
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const filename = `scrollywood-${timestamp}.webm`;
-      console.log('Downloading as:', filename);
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const filename = `scrollywood-${timestamp}.webm`;
 
-      try {
-        const downloadId = await chrome.downloads.download({
-          url: url,
+        chrome.runtime.sendMessage({
+          action: 'downloadVideo',
+          dataUrl: base64data,
           filename: filename,
-          saveAs: true,
+        }, (response) => {
+          console.log('Download response:', response);
+          chrome.runtime.sendMessage({ action: 'recordingComplete' });
         });
-        console.log('Download started, ID:', downloadId);
-      } catch (err) {
-        console.error('Download error:', err);
-      }
-
-      chrome.runtime.sendMessage({ action: 'recordingComplete' });
+      };
+      reader.readAsDataURL(blob);
     };
 
     mediaRecorder.onerror = (event) => {
@@ -84,11 +84,13 @@ async function startCapture(streamId, tabId, duration, delay) {
     await sleep(delay * 1000);
 
     // Ask service worker to inject scroll script (scripting API not available in offscreen)
-    console.log('Requesting scroll injection...');
+    console.log('Requesting scroll injection for tab', tabId, 'duration', duration);
     chrome.runtime.sendMessage({
       action: 'injectScroll',
       tabId,
       duration,
+    }, (response) => {
+      console.log('Scroll injection response:', response);
     });
 
     // Wait for scroll to complete plus extra time at the end
