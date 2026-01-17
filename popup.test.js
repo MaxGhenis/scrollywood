@@ -76,20 +76,23 @@ describe('Scrollywood', () => {
       });
     });
 
-    it('should capture tab with correct options', (done) => {
+    it('should capture tab with correct options', async () => {
       const mockStream = { getTracks: () => [] };
       mockChrome.tabCapture.capture.mockImplementation((options, callback) => {
         callback(mockStream);
       });
 
-      chrome.tabCapture.capture({ audio: false, video: true }, (stream) => {
-        expect(stream).toBe(mockStream);
-        expect(mockChrome.tabCapture.capture).toHaveBeenCalledWith(
-          { audio: false, video: true },
-          expect.any(Function)
-        );
-        done();
+      const capturedStream = await new Promise((resolve) => {
+        chrome.tabCapture.capture({ audio: false, video: true }, (stream) => {
+          resolve(stream);
+        });
       });
+
+      expect(capturedStream).toBe(mockStream);
+      expect(mockChrome.tabCapture.capture).toHaveBeenCalledWith(
+        { audio: false, video: true },
+        expect.any(Function)
+      );
     });
   });
 });
