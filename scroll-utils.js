@@ -75,3 +75,57 @@ export function calculateTotalScrollHeight({
   // Both failed - return whatever we have (could be small positive or 0)
   return Math.max(0, standardHeight, fallbackMaxScroll);
 }
+
+/**
+ * Creates a scroll executor that smoothly scrolls over a specified duration.
+ * Uses setInterval for predictable timing that works with fake timers in tests.
+ *
+ * @param {Object} options
+ * @param {number} options.totalHeight - Total distance to scroll in pixels
+ * @param {number} options.duration - Duration in seconds
+ * @param {Function} options.scrollTo - Function to call with scroll position
+ * @param {Function} options.onScroll - Callback fired on each scroll step
+ * @param {Function} options.onComplete - Callback fired when scroll completes
+ * @returns {Object} Executor with start() and stop() methods
+ */
+export function createScrollExecutor({
+  totalHeight,
+  duration,
+  scrollTo,
+  onScroll,
+  onComplete,
+}) {
+  const INTERVAL_MS = 16; // ~60fps
+  const totalMs = duration * 1000;
+  let intervalId = null;
+  let startTime = null;
+
+  function tick() {
+    const elapsed = Date.now() - startTime;
+    const progress = Math.min(elapsed / totalMs, 1);
+    const position = totalHeight * progress;
+
+    scrollTo(position);
+    onScroll();
+
+    if (progress >= 1) {
+      stop();
+      onComplete();
+    }
+  }
+
+  function start() {
+    startTime = Date.now();
+    intervalId = setInterval(tick, INTERVAL_MS);
+    tick(); // Execute immediately
+  }
+
+  function stop() {
+    if (intervalId !== null) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+  }
+
+  return { start, stop };
+}

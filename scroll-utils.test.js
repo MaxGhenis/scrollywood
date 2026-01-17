@@ -1,10 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   calculateScrollParams,
   createSmoothScrollFunction,
   getScrollBehaviorOverrideCSS,
   SCROLL_OVERRIDE_ID,
   calculateTotalScrollHeight,
+  createScrollExecutor,
 } from './scroll-utils.js';
 
 describe('scroll-utils', () => {
@@ -146,6 +147,123 @@ describe('scroll-utils', () => {
         fallbackMaxScroll: 5000,
       });
       expect(result).toBe(1200); // Uses standard: 2000 - 800
+    });
+  });
+
+  describe('createScrollExecutor', () => {
+    const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    it('should call scrollTo with increasing positions', async () => {
+      const scrollTo = vi.fn();
+      const onScroll = vi.fn();
+      const onComplete = vi.fn();
+
+      const executor = createScrollExecutor({
+        totalHeight: 1000,
+        duration: 0.1, // 100ms for fast test
+        scrollTo,
+        onScroll,
+        onComplete,
+      });
+
+      executor.start();
+      await delay(60); // Wait ~60% through
+
+      // Should have called scrollTo multiple times with increasing values
+      expect(scrollTo).toHaveBeenCalled();
+      const calls = scrollTo.mock.calls;
+      const lastPosition = calls[calls.length - 1][0];
+      expect(lastPosition).toBeGreaterThan(0);
+      expect(lastPosition).toBeLessThanOrEqual(1000);
+
+      executor.stop(); // Cleanup
+    });
+
+    it('should dispatch scroll events via onScroll callback', async () => {
+      const scrollTo = vi.fn();
+      const onScroll = vi.fn();
+      const onComplete = vi.fn();
+
+      const executor = createScrollExecutor({
+        totalHeight: 1000,
+        duration: 0.1,
+        scrollTo,
+        onScroll,
+        onComplete,
+      });
+
+      executor.start();
+      await delay(50);
+
+      expect(onScroll).toHaveBeenCalled();
+      executor.stop();
+    });
+
+    it('should call onComplete when scroll finishes', async () => {
+      const scrollTo = vi.fn();
+      const onScroll = vi.fn();
+      const onComplete = vi.fn();
+
+      const executor = createScrollExecutor({
+        totalHeight: 1000,
+        duration: 0.05, // 50ms
+        scrollTo,
+        onScroll,
+        onComplete,
+      });
+
+      executor.start();
+      await delay(100); // Wait for completion
+
+      expect(onComplete).toHaveBeenCalled();
+    });
+
+    it('should reach totalHeight at completion', async () => {
+      const scrollTo = vi.fn();
+      const onScroll = vi.fn();
+      const onComplete = vi.fn();
+
+      const executor = createScrollExecutor({
+        totalHeight: 1000,
+        duration: 0.05,
+        scrollTo,
+        onScroll,
+        onComplete,
+      });
+
+      executor.start();
+      await delay(100);
+
+      // Last scroll position should be at or near totalHeight
+      const calls = scrollTo.mock.calls;
+      const lastPosition = calls[calls.length - 1][0];
+      expect(lastPosition).toBeGreaterThanOrEqual(950); // Allow some tolerance
+    });
+
+    it('should be stoppable via stop method', async () => {
+      const scrollTo = vi.fn();
+      const onScroll = vi.fn();
+      const onComplete = vi.fn();
+
+      const executor = createScrollExecutor({
+        totalHeight: 1000,
+        duration: 0.2, // 200ms
+        scrollTo,
+        onScroll,
+        onComplete,
+      });
+
+      executor.start();
+      await delay(50);
+
+      const callCountBeforeStop = scrollTo.mock.calls.length;
+      executor.stop();
+
+      await delay(100);
+
+      // Should not have made significantly more calls after stop
+      // Allow 1 extra call due to timing
+      expect(scrollTo.mock.calls.length).toBeLessThanOrEqual(callCountBeforeStop + 1);
     });
   });
 });

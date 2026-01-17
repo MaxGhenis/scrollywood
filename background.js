@@ -169,28 +169,19 @@ async function injectScrollScript(tabId, duration) {
           }
         }
 
-        const startTime = Date.now();
-        const endTime = startTime + (scrollDuration * 1000);
-
         // Get scroll target (either a container element or window)
         const scrollContainer = window.__scrollywoodContainer;
 
+        // Use setInterval pattern (matches tested createScrollExecutor)
+        const INTERVAL_MS = 16; // ~60fps
+        const totalMs = scrollDuration * 1000;
         const startTime = Date.now();
-        const endTime = startTime + (scrollDuration * 1000);
-        let lastResizeTime = 0;
 
-        function smoothScroll() {
-          const now = Date.now();
-          if (now >= endTime) {
-            // Restore original scroll behavior
-            const override = document.getElementById(overrideId);
-            if (override) override.remove();
-            delete window.__scrollywoodContainer;
-            console.log('[Scrollywood] Scroll complete');
-            return;
-          }
+        let intervalId = null;
 
-          const progress = (now - startTime) / (scrollDuration * 1000);
+        function tick() {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / totalMs, 1);
           const targetY = totalHeight * progress;
 
           if (scrollContainer) {
@@ -201,17 +192,19 @@ async function injectScrollScript(tabId, duration) {
             window.dispatchEvent(new Event('scroll'));
           }
 
-          // Dispatch resize event every 500ms to force Intersection Observer recalculation
-          if (now - lastResizeTime > 500) {
-            window.dispatchEvent(new Event('resize'));
-            lastResizeTime = now;
+          if (progress >= 1) {
+            clearInterval(intervalId);
+            // Restore original scroll behavior
+            const override = document.getElementById(overrideId);
+            if (override) override.remove();
+            delete window.__scrollywoodContainer;
+            console.log('[Scrollywood] Scroll complete');
           }
-
-          requestAnimationFrame(smoothScroll);
         }
 
         console.log('[Scrollywood] Starting scroll, totalHeight:', totalHeight, 'container:', scrollContainer ? scrollContainer.tagName : 'window');
-        smoothScroll();
+        intervalId = setInterval(tick, INTERVAL_MS);
+        tick(); // Execute immediately
       },
       args: [duration, getScrollBehaviorOverrideCSS(), SCROLL_OVERRIDE_ID, MIN_SCROLL_THRESHOLD],
     });
