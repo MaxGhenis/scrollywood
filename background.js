@@ -175,13 +175,13 @@ async function injectScrollScript(tabId, duration) {
         // Get scroll target (either a container element or window)
         const scrollContainer = window.__scrollywoodContainer;
 
-        // Scroll in steps with pauses to allow Intersection Observer to process
-        const SCROLL_INTERVAL = 50; // ms between scroll updates (slower than rAF)
-        const totalSteps = (scrollDuration * 1000) / SCROLL_INTERVAL;
-        let currentStep = 0;
+        const startTime = Date.now();
+        const endTime = startTime + (scrollDuration * 1000);
+        let lastResizeTime = 0;
 
         function smoothScroll() {
-          if (currentStep >= totalSteps) {
+          const now = Date.now();
+          if (now >= endTime) {
             // Restore original scroll behavior
             const override = document.getElementById(overrideId);
             if (override) override.remove();
@@ -190,22 +190,24 @@ async function injectScrollScript(tabId, duration) {
             return;
           }
 
-          const progress = currentStep / totalSteps;
+          const progress = (now - startTime) / (scrollDuration * 1000);
           const targetY = totalHeight * progress;
 
           if (scrollContainer) {
             scrollContainer.scrollTop = targetY;
-            // Dispatch scroll event on container for scroll-triggered animations
             scrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
           } else {
             window.scrollTo({ top: targetY, behavior: 'instant' });
-            // Dispatch scroll event for libraries listening to window scroll
             window.dispatchEvent(new Event('scroll'));
           }
 
-          currentStep++;
-          // Use setTimeout instead of rAF to give IO time to process
-          setTimeout(smoothScroll, SCROLL_INTERVAL);
+          // Dispatch resize event every 500ms to force Intersection Observer recalculation
+          if (now - lastResizeTime > 500) {
+            window.dispatchEvent(new Event('resize'));
+            lastResizeTime = now;
+          }
+
+          requestAnimationFrame(smoothScroll);
         }
 
         console.log('[Scrollywood] Starting scroll, totalHeight:', totalHeight, 'container:', scrollContainer ? scrollContainer.tagName : 'window');
