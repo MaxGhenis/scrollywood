@@ -111,6 +111,27 @@ describe('scroll-utils', () => {
       expect(result).toBe(5000);
     });
 
+    it('should use fallbackMaxScroll when standard calculation is below minimum threshold', () => {
+      // 4 pixels is too small to be meaningful scroll
+      const result = calculateTotalScrollHeight({
+        docScrollHeight: 804,
+        bodyScrollHeight: 800,
+        windowHeight: 800,
+        fallbackMaxScroll: 5000,
+      });
+      expect(result).toBe(5000);
+    });
+
+    it('should use standard calculation when above minimum threshold', () => {
+      const result = calculateTotalScrollHeight({
+        docScrollHeight: 1000,
+        bodyScrollHeight: 800,
+        windowHeight: 800,
+        fallbackMaxScroll: 5000,
+      });
+      expect(result).toBe(200); // 1000 - 800, above 100px threshold
+    });
+
     it('should prefer standard calculation over fallback when positive', () => {
       const result = calculateTotalScrollHeight({
         docScrollHeight: 2000,

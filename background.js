@@ -4,6 +4,7 @@ import {
   getScrollBehaviorOverrideCSS,
   SCROLL_OVERRIDE_ID,
   calculateTotalScrollHeight,
+  MIN_SCROLL_THRESHOLD,
 } from './scroll-utils.js';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -50,7 +51,7 @@ async function injectScrollScript(tabId, duration) {
     console.log('Injecting scroll script for', duration, 'seconds');
     await chrome.scripting.executeScript({
       target: { tabId },
-      func: (scrollDuration, overrideCSS, overrideId) => {
+      func: (scrollDuration, overrideCSS, overrideId, minThreshold) => {
         console.log('[Scrollywood] Scroll script injected, duration:', scrollDuration);
 
         // Override CSS scroll-behavior to prevent conflicts with programmatic scrolling
@@ -71,17 +72,19 @@ async function injectScrollScript(tabId, duration) {
           bodyScrollHeight,
           windowHeight,
           calculatedHeight: totalHeight,
+          minThreshold,
         });
 
-        // Fallback: if standard calculation shows no scroll, try actual scrolling
-        if (totalHeight <= 0) {
+        // Fallback: if standard calculation is below threshold, try actual scrolling
+        if (totalHeight < minThreshold) {
+          console.log('[Scrollywood] Standard calc below threshold, trying fallback...');
           window.scrollTo({ top: 999999, behavior: 'instant' });
           const fallbackMaxScroll = window.scrollY;
           window.scrollTo({ top: 0, behavior: 'instant' });
 
           console.log('[Scrollywood] Fallback scroll test: maxScroll =', fallbackMaxScroll);
 
-          if (fallbackMaxScroll > 0) {
+          if (fallbackMaxScroll >= minThreshold) {
             totalHeight = fallbackMaxScroll;
           } else {
             console.warn('[Scrollywood] No scrollable content detected');
@@ -114,7 +117,7 @@ async function injectScrollScript(tabId, duration) {
         console.log('[Scrollywood] Starting scroll, totalHeight:', totalHeight);
         smoothScroll();
       },
-      args: [duration, getScrollBehaviorOverrideCSS(), SCROLL_OVERRIDE_ID],
+      args: [duration, getScrollBehaviorOverrideCSS(), SCROLL_OVERRIDE_ID, MIN_SCROLL_THRESHOLD],
     });
   } catch (error) {
     console.error('Failed to inject scroll script:', error);

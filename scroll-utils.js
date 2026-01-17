@@ -29,10 +29,15 @@ export function getScrollBehaviorOverrideCSS() {
   return 'html, body, * { scroll-behavior: auto !important; }';
 }
 
+// Minimum scroll height threshold - anything below this is considered "not scrollable"
+// and we should try the fallback approach
+export const MIN_SCROLL_THRESHOLD = 100;
+
 /**
  * Calculate the total scrollable height, trying multiple approaches.
  * Uses the larger of documentElement or body scrollHeight, minus window height.
- * Falls back to a provided maxScroll value if standard calculation yields 0.
+ * Falls back to a provided maxScroll value if standard calculation yields 0
+ * or is below the minimum threshold (100px).
  *
  * @param {Object} metrics - Scroll metrics from the page
  * @param {number} metrics.docScrollHeight - document.documentElement.scrollHeight
@@ -50,10 +55,16 @@ export function calculateTotalScrollHeight({
   const maxScrollHeight = Math.max(docScrollHeight, bodyScrollHeight);
   const standardHeight = maxScrollHeight - windowHeight;
 
-  if (standardHeight > 0) {
+  // Use standard calculation only if it's above minimum threshold
+  if (standardHeight >= MIN_SCROLL_THRESHOLD) {
     return standardHeight;
   }
 
-  // Standard calculation failed, use fallback if provided
-  return Math.max(0, fallbackMaxScroll);
+  // Standard calculation too small, use fallback if provided and meaningful
+  if (fallbackMaxScroll >= MIN_SCROLL_THRESHOLD) {
+    return fallbackMaxScroll;
+  }
+
+  // Both failed - return whatever we have (could be small positive or 0)
+  return Math.max(0, standardHeight, fallbackMaxScroll);
 }
