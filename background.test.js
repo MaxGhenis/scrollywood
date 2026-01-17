@@ -65,7 +65,7 @@ describe('Scrollywood Background', () => {
       await startRecording(123, 60, 2);
 
       expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith({
-        target: { tabId: 123 },
+        target: { tabId: 123, allFrames: true },
         func: expect.any(Function),
       });
     });

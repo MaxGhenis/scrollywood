@@ -15,9 +15,9 @@ export async function startRecording(tabId, duration, delay) {
   chrome.action.setBadgeBackgroundColor({ color: '#ff6b6b' });
 
   try {
-    // Scroll to top first
+    // Scroll to top first (allFrames to handle iframe-wrapped pages)
     await chrome.scripting.executeScript({
-      target: { tabId },
+      target: { tabId, allFrames: true },
       func: () => window.scrollTo({ top: 0, behavior: 'instant' }),
     });
 

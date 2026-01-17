@@ -50,7 +50,7 @@ async function injectScrollScript(tabId, duration) {
   try {
     console.log('Injecting scroll script for', duration, 'seconds');
     await chrome.scripting.executeScript({
-      target: { tabId },
+      target: { tabId, allFrames: true },
       func: (scrollDuration, overrideCSS, overrideId, minThreshold) => {
         console.log('[Scrollywood] Scroll script injected, duration:', scrollDuration);
 
