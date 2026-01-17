@@ -191,8 +191,12 @@ async function injectScrollScript(tabId, duration) {
 
           if (scrollContainer) {
             scrollContainer.scrollTop = targetY;
+            // Dispatch scroll event on container for scroll-triggered animations
+            scrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
           } else {
             window.scrollTo({ top: targetY, behavior: 'instant' });
+            // Dispatch scroll event for libraries listening to window scroll
+            window.dispatchEvent(new Event('scroll'));
           }
 
           requestAnimationFrame(smoothScroll);
