@@ -21,12 +21,19 @@ export function createSmoothScrollFunction(totalDistance) {
 export const SCROLL_OVERRIDE_ID = 'scrollywood-scroll-override';
 
 /**
- * Returns CSS that disables smooth scrolling to allow programmatic control.
- * This overrides scroll-behavior: smooth set in stylesheets, which can
- * conflict with window.scrollTo({ behavior: 'instant' }) in some browsers.
+ * Returns CSS that enables programmatic scrolling.
+ * - Disables scroll-behavior: smooth which conflicts with scrollTo()
+ * - Removes overflow: hidden which can block scrolling entirely
  */
 export function getScrollBehaviorOverrideCSS() {
-  return 'html, body, * { scroll-behavior: auto !important; }';
+  return `
+    html, body {
+      overflow: auto !important;
+      overflow-y: auto !important;
+      scroll-behavior: auto !important;
+    }
+    * { scroll-behavior: auto !important; }
+  `;
 }
 
 // Minimum scroll height threshold - anything below this is considered "not scrollable"

@@ -55,6 +55,12 @@ describe('scroll-utils', () => {
       const css = getScrollBehaviorOverrideCSS();
       expect(css).toContain('*');
     });
+
+    it('should override overflow:hidden that blocks scrolling', () => {
+      const css = getScrollBehaviorOverrideCSS();
+      expect(css).toContain('overflow');
+      expect(css).toContain('auto');
+    });
   });
 
   describe('SCROLL_OVERRIDE_ID', () => {
