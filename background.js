@@ -175,9 +175,13 @@ async function injectScrollScript(tabId, duration) {
         // Get scroll target (either a container element or window)
         const scrollContainer = window.__scrollywoodContainer;
 
+        // Scroll in steps with pauses to allow Intersection Observer to process
+        const SCROLL_INTERVAL = 50; // ms between scroll updates (slower than rAF)
+        const totalSteps = (scrollDuration * 1000) / SCROLL_INTERVAL;
+        let currentStep = 0;
+
         function smoothScroll() {
-          const now = Date.now();
-          if (now >= endTime) {
+          if (currentStep >= totalSteps) {
             // Restore original scroll behavior
             const override = document.getElementById(overrideId);
             if (override) override.remove();
@@ -186,7 +190,7 @@ async function injectScrollScript(tabId, duration) {
             return;
           }
 
-          const progress = (now - startTime) / (scrollDuration * 1000);
+          const progress = currentStep / totalSteps;
           const targetY = totalHeight * progress;
 
           if (scrollContainer) {
@@ -199,7 +203,9 @@ async function injectScrollScript(tabId, duration) {
             window.dispatchEvent(new Event('scroll'));
           }
 
-          requestAnimationFrame(smoothScroll);
+          currentStep++;
+          // Use setTimeout instead of rAF to give IO time to process
+          setTimeout(smoothScroll, SCROLL_INTERVAL);
         }
 
         console.log('[Scrollywood] Starting scroll, totalHeight:', totalHeight, 'container:', scrollContainer ? scrollContainer.tagName : 'window');
