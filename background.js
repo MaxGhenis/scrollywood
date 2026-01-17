@@ -67,6 +67,10 @@ async function injectScrollScript(tabId, duration) {
         const maxScrollHeight = Math.max(docScrollHeight, bodyScrollHeight);
         let totalHeight = maxScrollHeight - windowHeight;
 
+        // Debug: check page state
+        const htmlStyle = getComputedStyle(document.documentElement);
+        const bodyStyle = getComputedStyle(document.body);
+
         console.log('[Scrollywood] Scroll metrics:', {
           docScrollHeight,
           bodyScrollHeight,
@@ -75,12 +79,59 @@ async function injectScrollScript(tabId, duration) {
           minThreshold,
         });
 
+        console.log('[Scrollywood] Page state:', {
+          readyState: document.readyState,
+          htmlOverflow: htmlStyle.overflow,
+          htmlOverflowY: htmlStyle.overflowY,
+          bodyOverflow: bodyStyle.overflow,
+          bodyOverflowY: bodyStyle.overflowY,
+          htmlHeight: htmlStyle.height,
+          bodyHeight: bodyStyle.height,
+        });
+
         // Fallback: if standard calculation is below threshold, try actual scrolling
         if (totalHeight < minThreshold) {
           console.log('[Scrollywood] Standard calc below threshold, trying fallback...');
+
+          // Try multiple scroll methods
           window.scrollTo({ top: 999999, behavior: 'instant' });
-          const fallbackMaxScroll = window.scrollY;
+          let fallbackMaxScroll = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+
+          // Also try scrolling the documentElement directly
+          if (fallbackMaxScroll === 0) {
+            document.documentElement.scrollTop = 999999;
+            fallbackMaxScroll = document.documentElement.scrollTop;
+          }
+
+          // And try body
+          if (fallbackMaxScroll === 0) {
+            document.body.scrollTop = 999999;
+            fallbackMaxScroll = document.body.scrollTop;
+          }
+
+          // Look for scrollable containers
+          if (fallbackMaxScroll === 0) {
+            const containers = document.querySelectorAll('div, main, section, article');
+            for (const el of containers) {
+              const style = getComputedStyle(el);
+              if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
+                el.scrollTop = 999999;
+                if (el.scrollTop > 0) {
+                  console.log('[Scrollywood] Found scrollable container:', el.tagName, el.className);
+                  fallbackMaxScroll = el.scrollTop;
+                  el.scrollTop = 0;
+                  // Store reference for later scrolling
+                  window.__scrollywoodContainer = el;
+                  break;
+                }
+              }
+            }
+          }
+
+          // Reset scroll position
           window.scrollTo({ top: 0, behavior: 'instant' });
+          document.documentElement.scrollTop = 0;
+          document.body.scrollTop = 0;
 
           console.log('[Scrollywood] Fallback scroll test: maxScroll =', fallbackMaxScroll);
 
@@ -97,24 +148,33 @@ async function injectScrollScript(tabId, duration) {
         const startTime = Date.now();
         const endTime = startTime + (scrollDuration * 1000);
 
+        // Get scroll target (either a container element or window)
+        const scrollContainer = window.__scrollywoodContainer;
+
         function smoothScroll() {
           const now = Date.now();
           if (now >= endTime) {
             // Restore original scroll behavior
             const override = document.getElementById(overrideId);
             if (override) override.remove();
+            delete window.__scrollywoodContainer;
             console.log('[Scrollywood] Scroll complete');
             return;
           }
 
           const progress = (now - startTime) / (scrollDuration * 1000);
           const targetY = totalHeight * progress;
-          window.scrollTo({ top: targetY, behavior: 'instant' });
+
+          if (scrollContainer) {
+            scrollContainer.scrollTop = targetY;
+          } else {
+            window.scrollTo({ top: targetY, behavior: 'instant' });
+          }
 
           requestAnimationFrame(smoothScroll);
         }
 
-        console.log('[Scrollywood] Starting scroll, totalHeight:', totalHeight);
+        console.log('[Scrollywood] Starting scroll, totalHeight:', totalHeight, 'container:', scrollContainer ? scrollContainer.tagName : 'window');
         smoothScroll();
       },
       args: [duration, getScrollBehaviorOverrideCSS(), SCROLL_OVERRIDE_ID, MIN_SCROLL_THRESHOLD],
