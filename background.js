@@ -109,21 +109,39 @@ async function injectScrollScript(tabId, duration) {
             fallbackMaxScroll = document.body.scrollTop;
           }
 
-          // Look for scrollable containers
-          if (fallbackMaxScroll === 0) {
-            const containers = document.querySelectorAll('div, main, section, article');
-            for (const el of containers) {
-              const style = getComputedStyle(el);
-              if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-                el.scrollTop = 999999;
-                if (el.scrollTop > 0) {
-                  console.log('[Scrollywood] Found scrollable container:', el.tagName, el.className);
-                  fallbackMaxScroll = el.scrollTop;
-                  el.scrollTop = 0;
-                  // Store reference for later scrolling
-                  window.__scrollywoodContainer = el;
-                  break;
-                }
+          // Look for scrollable containers - check ALL elements with scrollHeight > clientHeight
+          if (fallbackMaxScroll < minThreshold) {
+            console.log('[Scrollywood] Searching for scrollable containers...');
+            const allElements = document.querySelectorAll('*');
+            const candidates = [];
+
+            for (const el of allElements) {
+              if (el.scrollHeight > el.clientHeight + 50) {
+                candidates.push({
+                  el,
+                  tag: el.tagName,
+                  className: el.className?.toString().slice(0, 30),
+                  scrollHeight: el.scrollHeight,
+                  clientHeight: el.clientHeight,
+                  diff: el.scrollHeight - el.clientHeight,
+                });
+              }
+            }
+
+            console.log('[Scrollywood] Candidates with scrollHeight > clientHeight:', candidates.length);
+            candidates.slice(0, 5).forEach(c => console.log('[Scrollywood] Candidate:', c));
+
+            // Try scrolling each candidate
+            for (const { el } of candidates) {
+              const before = el.scrollTop;
+              el.scrollTop = 999999;
+              const scrolled = el.scrollTop;
+              el.scrollTop = before;
+
+              if (scrolled > fallbackMaxScroll) {
+                console.log('[Scrollywood] Found better scrollable:', el.tagName, el.className, 'scrolled to', scrolled);
+                fallbackMaxScroll = scrolled;
+                window.__scrollywoodContainer = el;
               }
             }
           }
