@@ -179,20 +179,35 @@ async function injectScrollScript(tabId, duration) {
 
         let intervalId = null;
 
+        // Calculate pixels per tick based on duration
+        const pixelsPerTick = totalHeight / (totalMs / INTERVAL_MS);
+        let currentScroll = 0;
+
         function tick() {
-          const elapsed = Date.now() - startTime;
-          const progress = Math.min(elapsed / totalMs, 1);
-          const targetY = totalHeight * progress;
+          currentScroll += pixelsPerTick;
+          if (currentScroll >= totalHeight) {
+            currentScroll = totalHeight;
+          }
+
+          // Use wheel event simulation for more natural scroll that triggers IO
+          const wheelEvent = new WheelEvent('wheel', {
+            deltaY: pixelsPerTick,
+            deltaMode: 0, // pixels
+            bubbles: true,
+            cancelable: true,
+          });
 
           if (scrollContainer) {
-            scrollContainer.scrollTop = targetY;
+            scrollContainer.scrollTop = currentScroll;
+            scrollContainer.dispatchEvent(wheelEvent);
             scrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
           } else {
-            window.scrollTo({ top: targetY, behavior: 'instant' });
+            window.scrollTo({ top: currentScroll, behavior: 'instant' });
+            document.documentElement.dispatchEvent(wheelEvent);
             window.dispatchEvent(new Event('scroll'));
           }
 
-          if (progress >= 1) {
+          if (currentScroll >= totalHeight) {
             clearInterval(intervalId);
             // Restore original scroll behavior
             const override = document.getElementById(overrideId);
