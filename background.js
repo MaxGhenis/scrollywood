@@ -54,6 +54,12 @@ async function injectScrollScript(tabId, duration) {
       func: (scrollDuration, overrideCSS, overrideId, minThreshold) => {
         console.log('[Scrollywood] Scroll script injected, duration:', scrollDuration);
 
+        // Check for iframe-wrapped content (common cause of scroll issues)
+        const iframes = document.querySelectorAll('iframe');
+        if (iframes.length > 0 && document.body.children.length <= 2) {
+          console.warn('[Scrollywood] Page appears to be iframe-wrapped. Content inside cross-origin iframes cannot be scrolled. Try navigating directly to:', iframes[0]?.src);
+        }
+
         // Override CSS scroll-behavior to prevent conflicts with programmatic scrolling
         const styleOverride = document.createElement('style');
         styleOverride.id = overrideId;
