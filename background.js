@@ -198,20 +198,27 @@ async function injectScrollScript(tabId, duration) {
         }
 
         if (stepElements.length > 0) {
+          // Remove the CSS override - it can break sticky positioning
+          // scrollIntoView doesn't need scroll-behavior override
+          const existingOverride = document.getElementById(overrideId);
+          if (existingOverride) {
+            existingOverride.remove();
+            console.log('[Scrollywood] Removed CSS override for step-based scroll');
+          }
+
           // Step-by-step scrolling using scrollIntoView
           const timePerStep = (scrollDuration * 1000) / stepElements.length;
           let currentStep = 0;
 
           function scrollToNextStep() {
             if (currentStep >= stepElements.length) {
-              const override = document.getElementById(overrideId);
-              if (override) override.remove();
               console.log('[Scrollywood] Step-based scroll complete');
               return;
             }
 
             const element = stepElements[currentStep];
-            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            // Use instant to avoid conflicts, browser will still trigger IO
+            element.scrollIntoView({ behavior: 'instant', block: 'center' });
             console.log('[Scrollywood] Scrolling to step', currentStep + 1, 'of', stepElements.length);
             currentStep++;
             setTimeout(scrollToNextStep, timePerStep);
