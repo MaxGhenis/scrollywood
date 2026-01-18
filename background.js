@@ -179,47 +179,79 @@ async function injectScrollScript(tabId, duration) {
 
         let intervalId = null;
 
-        // Calculate pixels per tick based on duration
-        const pixelsPerTick = totalHeight / (totalMs / INTERVAL_MS);
-        let currentScroll = 0;
+        // Try to find scrollama/scrollytelling step elements
+        const stepSelectors = [
+          '[data-react-scrollama-id]',  // react-scrollama
+          '.step',                       // common scrollytelling class
+          '[data-step]',                 // data attribute pattern
+          '.narrative-step',             // mita specific
+        ];
 
-        function tick() {
-          currentScroll += pixelsPerTick;
-          if (currentScroll >= totalHeight) {
-            currentScroll = totalHeight;
-          }
-
-          // Use wheel event simulation for more natural scroll that triggers IO
-          const wheelEvent = new WheelEvent('wheel', {
-            deltaY: pixelsPerTick,
-            deltaMode: 0, // pixels
-            bubbles: true,
-            cancelable: true,
-          });
-
-          if (scrollContainer) {
-            scrollContainer.scrollTop = currentScroll;
-            scrollContainer.dispatchEvent(wheelEvent);
-            scrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
-          } else {
-            window.scrollTo({ top: currentScroll, behavior: 'instant' });
-            document.documentElement.dispatchEvent(wheelEvent);
-            window.dispatchEvent(new Event('scroll'));
-          }
-
-          if (currentScroll >= totalHeight) {
-            clearInterval(intervalId);
-            // Restore original scroll behavior
-            const override = document.getElementById(overrideId);
-            if (override) override.remove();
-            delete window.__scrollywoodContainer;
-            console.log('[Scrollywood] Scroll complete');
+        let stepElements = [];
+        for (const selector of stepSelectors) {
+          const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            stepElements = Array.from(elements);
+            console.log('[Scrollywood] Found', stepElements.length, 'step elements with selector:', selector);
+            break;
           }
         }
 
-        console.log('[Scrollywood] Starting scroll, totalHeight:', totalHeight, 'container:', scrollContainer ? scrollContainer.tagName : 'window');
-        intervalId = setInterval(tick, INTERVAL_MS);
-        tick(); // Execute immediately
+        if (stepElements.length > 0) {
+          // Step-by-step scrolling using scrollIntoView
+          const timePerStep = (scrollDuration * 1000) / stepElements.length;
+          let currentStep = 0;
+
+          function scrollToNextStep() {
+            if (currentStep >= stepElements.length) {
+              const override = document.getElementById(overrideId);
+              if (override) override.remove();
+              console.log('[Scrollywood] Step-based scroll complete');
+              return;
+            }
+
+            const element = stepElements[currentStep];
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            console.log('[Scrollywood] Scrolling to step', currentStep + 1, 'of', stepElements.length);
+            currentStep++;
+            setTimeout(scrollToNextStep, timePerStep);
+          }
+
+          console.log('[Scrollywood] Using step-based scroll with', stepElements.length, 'steps');
+          scrollToNextStep();
+        } else {
+          // Fallback to regular smooth scroll
+          const pixelsPerTick = totalHeight / (totalMs / INTERVAL_MS);
+          let currentScroll = 0;
+          let intervalId = null;
+
+          function tick() {
+            currentScroll += pixelsPerTick;
+            if (currentScroll >= totalHeight) {
+              currentScroll = totalHeight;
+            }
+
+            if (scrollContainer) {
+              scrollContainer.scrollTop = currentScroll;
+              scrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
+            } else {
+              window.scrollTo({ top: currentScroll, behavior: 'instant' });
+              window.dispatchEvent(new Event('scroll'));
+            }
+
+            if (currentScroll >= totalHeight) {
+              clearInterval(intervalId);
+              const override = document.getElementById(overrideId);
+              if (override) override.remove();
+              delete window.__scrollywoodContainer;
+              console.log('[Scrollywood] Scroll complete');
+            }
+          }
+
+          console.log('[Scrollywood] Using fallback scroll, totalHeight:', totalHeight);
+          intervalId = setInterval(tick, INTERVAL_MS);
+          tick();
+        }
       },
       args: [duration, getScrollBehaviorOverrideCSS(), SCROLL_OVERRIDE_ID, MIN_SCROLL_THRESHOLD],
     });
