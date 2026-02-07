@@ -7,6 +7,12 @@ chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
   if (message.action === 'startCapture') {
     await startCapture(message.streamId, message.tabId, message.duration, message.delay);
   }
+  if (message.action === 'stopCapture') {
+    console.log('Received stopCapture, stopping now');
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop();
+    }
+  }
   return true;
 });
 
@@ -19,6 +25,8 @@ async function startCapture(streamId, tabId, duration, delay) {
         mandatory: {
           chromeMediaSource: 'tab',
           chromeMediaSourceId: streamId,
+          minFrameRate: 30,
+          maxFrameRate: 60,
         },
       },
     });
@@ -27,7 +35,7 @@ async function startCapture(streamId, tabId, duration, delay) {
     recordedChunks = [];
     mediaRecorder = new MediaRecorder(stream, {
       mimeType: 'video/webm;codecs=vp9',
-      videoBitsPerSecond: 8000000,
+      videoBitsPerSecond: 16000000,
     });
 
     mediaRecorder.ondataavailable = (event) => {
@@ -77,7 +85,7 @@ async function startCapture(streamId, tabId, duration, delay) {
     };
 
     // Start recording
-    mediaRecorder.start(1000);
+    mediaRecorder.start(100);
     console.log('Recording started, waiting for delay...');
 
     // Wait for initial delay
@@ -93,11 +101,13 @@ async function startCapture(streamId, tabId, duration, delay) {
       console.log('Scroll injection response:', response);
     });
 
-    // Wait for scroll to complete plus extra time at the end
+    // Stop recording after scroll completes + short buffer.
+    // This is the primary stop mechanism — the offscreen document's timers
+    // are reliable (unlike the service worker which sleeps after 30s in MV3).
     await sleep((duration + 2) * 1000);
 
-    // Stop recording
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      console.log('Stopping recording (scroll duration + 2s buffer elapsed)');
       mediaRecorder.stop();
     }
 

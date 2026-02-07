@@ -3,6 +3,7 @@ import {
   calculateScrollParams,
   createSmoothScrollFunction,
   getScrollBehaviorOverrideCSS,
+  getOverflowOverrideCSS,
   SCROLL_OVERRIDE_ID,
   calculateTotalScrollHeight,
   createScrollExecutor,
@@ -46,21 +47,29 @@ describe('scroll-utils', () => {
       expect(css).toContain('!important');
     });
 
-    it('should target html and body elements', () => {
-      const css = getScrollBehaviorOverrideCSS();
-      expect(css).toContain('html');
-      expect(css).toContain('body');
-    });
-
     it('should use wildcard selector to catch nested scrollables', () => {
       const css = getScrollBehaviorOverrideCSS();
       expect(css).toContain('*');
     });
 
-    it('should override overflow:hidden that blocks scrolling', () => {
+    it('should NOT override overflow (to preserve position: sticky)', () => {
       const css = getScrollBehaviorOverrideCSS();
+      expect(css).not.toContain('overflow');
+    });
+  });
+
+  describe('getOverflowOverrideCSS', () => {
+    it('should override overflow to auto on html and body', () => {
+      const css = getOverflowOverrideCSS();
       expect(css).toContain('overflow');
       expect(css).toContain('auto');
+      expect(css).toContain('!important');
+    });
+
+    it('should target html and body elements', () => {
+      const css = getOverflowOverrideCSS();
+      expect(css).toContain('html');
+      expect(css).toContain('body');
     });
   });
 

@@ -21,18 +21,25 @@ export function createSmoothScrollFunction(totalDistance) {
 export const SCROLL_OVERRIDE_ID = 'scrollywood-scroll-override';
 
 /**
- * Returns CSS that enables programmatic scrolling.
- * - Disables scroll-behavior: smooth which conflicts with scrollTo()
- * - Removes overflow: hidden which can block scrolling entirely
+ * Returns CSS that overrides scroll-behavior: smooth, which conflicts with
+ * programmatic scrollTo({ behavior: 'instant' }).
+ * Does NOT override overflow — that's handled conditionally to avoid
+ * breaking position: sticky in scrollytelling layouts.
  */
 export function getScrollBehaviorOverrideCSS() {
+  return `* { scroll-behavior: auto !important; }`;
+}
+
+/**
+ * Returns CSS that forces overflow: auto on html/body.
+ * Only used when overflow: hidden is detected and prevents scrolling.
+ */
+export function getOverflowOverrideCSS() {
   return `
     html, body {
       overflow: auto !important;
       overflow-y: auto !important;
-      scroll-behavior: auto !important;
     }
-    * { scroll-behavior: auto !important; }
   `;
 }
 

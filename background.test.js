@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock Chrome APIs
 const mockChrome = {
@@ -35,7 +35,9 @@ import {
   startRecording,
   setupOffscreenDocument,
   handleRecordingComplete,
-  resetRecordingState
+  resetRecordingState,
+  scheduleRecordingStop,
+  cancelScheduledStop,
 } from './background-logic.js';
 
 describe('Scrollywood Background', () => {
@@ -152,6 +154,65 @@ describe('Scrollywood Background', () => {
       handleRecordingComplete();
 
       expect(mockChrome.action.setBadgeText).toHaveBeenCalledWith({ text: '' });
+    });
+  });
+
+  describe('scheduleRecordingStop', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      cancelScheduledStop();
+      vi.useRealTimers();
+    });
+
+    it('should send stopCapture after duration + 1.5s buffer', () => {
+      scheduleRecordingStop(10); // 10 second duration
+
+      // Not sent yet
+      expect(mockChrome.runtime.sendMessage).not.toHaveBeenCalledWith({ action: 'stopCapture' });
+
+      // Advance to duration + 1.5s
+      vi.advanceTimersByTime(11500);
+
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'stopCapture' });
+    });
+
+    it('should not send stopCapture before the buffer expires', () => {
+      scheduleRecordingStop(10);
+
+      // Advance to just before the buffer
+      vi.advanceTimersByTime(11000);
+
+      expect(mockChrome.runtime.sendMessage).not.toHaveBeenCalledWith({ action: 'stopCapture' });
+    });
+
+    it('should cancel previous stop when called again', () => {
+      scheduleRecordingStop(10);
+
+      // Reschedule with longer duration
+      scheduleRecordingStop(20);
+
+      // Advance past first timer but before second
+      vi.advanceTimersByTime(11500);
+
+      // Should NOT have fired (first was cancelled)
+      expect(mockChrome.runtime.sendMessage).not.toHaveBeenCalledWith({ action: 'stopCapture' });
+
+      // Advance to second timer
+      vi.advanceTimersByTime(10000);
+
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({ action: 'stopCapture' });
+    });
+
+    it('should be cancellable', () => {
+      scheduleRecordingStop(10);
+      cancelScheduledStop();
+
+      vi.advanceTimersByTime(20000);
+
+      expect(mockChrome.runtime.sendMessage).not.toHaveBeenCalledWith({ action: 'stopCapture' });
     });
   });
 });

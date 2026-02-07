@@ -1,7 +1,8 @@
 // Background service worker for Scrollywood
-import { startRecording, handleRecordingComplete } from './background-logic.js';
+import { startRecording, handleRecordingComplete, isRecording } from './background-logic.js';
 import {
   getScrollBehaviorOverrideCSS,
+  getOverflowOverrideCSS,
   SCROLL_OVERRIDE_ID,
   calculateTotalScrollHeight,
   MIN_SCROLL_THRESHOLD,
@@ -23,6 +24,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Downloading video:', message.filename);
     downloadVideo(message.dataUrl, message.filename);
     sendResponse({ status: 'downloading' });
+  }
+  if (message.action === 'getState') {
+    sendResponse({ recording: isRecording() });
+  }
+  if (message.action === 'forceStop') {
+    console.log('Force stop requested');
+    chrome.runtime.sendMessage({ action: 'stopCapture' });
+    sendResponse({ status: 'stopping' });
   }
   if (message.action === 'recordingComplete') {
     handleRecordingComplete();
@@ -51,13 +60,21 @@ async function injectScrollScript(tabId, duration) {
     console.log('Injecting scroll script for', duration, 'seconds');
     await chrome.scripting.executeScript({
       target: { tabId, allFrames: true },
-      func: (scrollDuration, overrideCSS, overrideId, minThreshold) => {
+      func: (scrollDuration, overrideCSS, overflowCSS, overrideId, minThreshold) => {
         console.log('[Scrollywood] Scroll script injected, duration:', scrollDuration);
 
-        // Check for iframe-wrapped content (common cause of scroll issues)
+        // Detect iframe-wrapped pages (e.g. maxghenis.com/mita wrapping maxghenis.github.io/mita/)
+        // These outer frames have no scrollable content - the inner frame handles scrolling via allFrames: true
         const iframes = document.querySelectorAll('iframe');
         if (iframes.length > 0 && document.body.children.length <= 2) {
-          console.warn('[Scrollywood] Page appears to be iframe-wrapped. Content inside cross-origin iframes cannot be scrolled. Try navigating directly to:', iframes[0]?.src);
+          const docHeight = document.documentElement.scrollHeight;
+          const bodyHeight = document.body.scrollHeight;
+          const winHeight = window.innerHeight;
+          const outerScrollable = Math.max(docHeight, bodyHeight) - winHeight;
+          if (outerScrollable < minThreshold) {
+            console.log('[Scrollywood] Iframe wrapper detected, deferring to inner frame');
+            return;
+          }
         }
 
         // Override CSS scroll-behavior to prevent conflicts with programmatic scrolling
@@ -99,6 +116,26 @@ async function injectScrollScript(tabId, duration) {
         if (totalHeight < minThreshold) {
           console.log('[Scrollywood] Standard calc below threshold, trying fallback...');
 
+          // Check if overflow:hidden is preventing scrolling, and override if so
+          if (htmlStyle.overflow === 'hidden' || htmlStyle.overflowY === 'hidden' ||
+              bodyStyle.overflow === 'hidden' || bodyStyle.overflowY === 'hidden') {
+            console.log('[Scrollywood] overflow:hidden detected, adding overflow override');
+            styleOverride.textContent += overflowCSS;
+
+            // Recalculate with overflow fixed
+            const newMaxHeight = Math.max(
+              document.documentElement.scrollHeight,
+              document.body.scrollHeight
+            ) - window.innerHeight;
+            if (newMaxHeight >= minThreshold) {
+              totalHeight = newMaxHeight;
+              console.log('[Scrollywood] After overflow fix, totalHeight:', totalHeight);
+            }
+          }
+        }
+
+        // If still below threshold after overflow fix, try more aggressive fallbacks
+        if (totalHeight < minThreshold) {
           // Try multiple scroll methods
           window.scrollTo({ top: 999999, behavior: 'instant' });
           let fallbackMaxScroll = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
@@ -175,59 +212,17 @@ async function injectScrollScript(tabId, duration) {
         // Use setInterval pattern (matches tested createScrollExecutor)
         const INTERVAL_MS = 16; // ~60fps
         const totalMs = scrollDuration * 1000;
-        const startTime = Date.now();
 
-        let intervalId = null;
+        // Prefer smooth linear scrolling over step-based jumping.
+        // Smooth scroll at 60fps naturally triggers IntersectionObserver as elements
+        // cross viewport thresholds - exactly like manual scrolling. This is critical
+        // for scrollytelling pages (react-scrollama, scrollama) where the smooth
+        // continuous scroll IS the visual experience.
+        // Step-based jumping is only used as a last resort for exotic pages that have
+        // navigable step elements but no standard scrollable content.
 
-        // Try to find scrollama/scrollytelling step elements
-        const stepSelectors = [
-          '[data-react-scrollama-id]',  // react-scrollama
-          '.step',                       // common scrollytelling class
-          '[data-step]',                 // data attribute pattern
-          '.narrative-step',             // mita specific
-        ];
-
-        let stepElements = [];
-        for (const selector of stepSelectors) {
-          const elements = document.querySelectorAll(selector);
-          if (elements.length > 0) {
-            stepElements = Array.from(elements);
-            console.log('[Scrollywood] Found', stepElements.length, 'step elements with selector:', selector);
-            break;
-          }
-        }
-
-        if (stepElements.length > 0) {
-          // Remove the CSS override - it can break sticky positioning
-          // scrollIntoView doesn't need scroll-behavior override
-          const existingOverride = document.getElementById(overrideId);
-          if (existingOverride) {
-            existingOverride.remove();
-            console.log('[Scrollywood] Removed CSS override for step-based scroll');
-          }
-
-          // Step-by-step scrolling using scrollIntoView
-          const timePerStep = (scrollDuration * 1000) / stepElements.length;
-          let currentStep = 0;
-
-          function scrollToNextStep() {
-            if (currentStep >= stepElements.length) {
-              console.log('[Scrollywood] Step-based scroll complete');
-              return;
-            }
-
-            const element = stepElements[currentStep];
-            // Use instant to avoid conflicts, browser will still trigger IO
-            element.scrollIntoView({ behavior: 'instant', block: 'center' });
-            console.log('[Scrollywood] Scrolling to step', currentStep + 1, 'of', stepElements.length);
-            currentStep++;
-            setTimeout(scrollToNextStep, timePerStep);
-          }
-
-          console.log('[Scrollywood] Using step-based scroll with', stepElements.length, 'steps');
-          scrollToNextStep();
-        } else {
-          // Fallback to regular smooth scroll
+        if (totalHeight >= minThreshold) {
+          // Primary: smooth linear scroll
           const pixelsPerTick = totalHeight / (totalMs / INTERVAL_MS);
           let currentScroll = 0;
           let intervalId = null;
@@ -244,6 +239,7 @@ async function injectScrollScript(tabId, duration) {
             } else {
               window.scrollTo({ top: currentScroll, behavior: 'instant' });
               window.dispatchEvent(new Event('scroll'));
+              document.dispatchEvent(new Event('scroll'));
             }
 
             if (currentScroll >= totalHeight) {
@@ -255,12 +251,62 @@ async function injectScrollScript(tabId, duration) {
             }
           }
 
-          console.log('[Scrollywood] Using fallback scroll, totalHeight:', totalHeight);
+          console.log('[Scrollywood] Using smooth scroll, totalHeight:', totalHeight);
           intervalId = setInterval(tick, INTERVAL_MS);
           tick();
+        } else {
+          // Fallback: step-based scrolling for pages with no standard scroll
+          const stepSelectors = [
+            '[data-react-scrollama-id]',  // react-scrollama
+            '.step',                       // common scrollytelling class
+            '[data-step]',                 // data attribute pattern
+            '.narrative-step',             // mita specific
+          ];
+
+          let stepElements = [];
+          for (const selector of stepSelectors) {
+            const elements = document.querySelectorAll(selector);
+            if (elements.length > 0) {
+              stepElements = Array.from(elements);
+              console.log('[Scrollywood] Found', stepElements.length, 'step elements with selector:', selector);
+              break;
+            }
+          }
+
+          if (stepElements.length > 0) {
+            // Remove the CSS override - scrollIntoView doesn't need it
+            const existingOverride = document.getElementById(overrideId);
+            if (existingOverride) {
+              existingOverride.remove();
+              console.log('[Scrollywood] Removed CSS override for step-based scroll');
+            }
+
+            const timePerStep = (scrollDuration * 1000) / stepElements.length;
+            let currentStep = 0;
+
+            function scrollToNextStep() {
+              if (currentStep >= stepElements.length) {
+                console.log('[Scrollywood] Step-based scroll complete');
+                return;
+              }
+
+              const element = stepElements[currentStep];
+              element.scrollIntoView({ behavior: 'instant', block: 'start' });
+              console.log('[Scrollywood] Scrolling to step', currentStep + 1, 'of', stepElements.length);
+              currentStep++;
+              setTimeout(scrollToNextStep, timePerStep);
+            }
+
+            console.log('[Scrollywood] Using step-based scroll with', stepElements.length, 'steps');
+            scrollToNextStep();
+          } else {
+            console.log('[Scrollywood] No scrollable content and no step elements found');
+            const override = document.getElementById(overrideId);
+            if (override) override.remove();
+          }
         }
       },
-      args: [duration, getScrollBehaviorOverrideCSS(), SCROLL_OVERRIDE_ID, MIN_SCROLL_THRESHOLD],
+      args: [duration, getScrollBehaviorOverrideCSS(), getOverflowOverrideCSS(), SCROLL_OVERRIDE_ID, MIN_SCROLL_THRESHOLD],
     });
   } catch (error) {
     console.error('Failed to inject scroll script:', error);

@@ -79,3 +79,24 @@ export function isRecording() {
 export function resetRecordingState() {
   recording = false;
 }
+
+// Schedule recording stop after scroll duration + buffer
+const STOP_BUFFER_MS = 1500;
+let stopTimerId = null;
+
+export function scheduleRecordingStop(duration) {
+  // Cancel any previous scheduled stop
+  cancelScheduledStop();
+  const delayMs = (duration * 1000) + STOP_BUFFER_MS;
+  stopTimerId = setTimeout(() => {
+    chrome.runtime.sendMessage({ action: 'stopCapture' });
+    stopTimerId = null;
+  }, delayMs);
+}
+
+export function cancelScheduledStop() {
+  if (stopTimerId !== null) {
+    clearTimeout(stopTimerId);
+    stopTimerId = null;
+  }
+}
