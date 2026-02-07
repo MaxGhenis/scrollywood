@@ -3,17 +3,19 @@
 let mediaRecorder = null;
 let recordedChunks = [];
 
-chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'startCapture') {
-    await startCapture(message.streamId, message.tabId, message.duration, message.delay);
+    startCapture(message.streamId, message.tabId, message.duration, message.delay);
+    return true;
   }
   if (message.action === 'stopCapture') {
     console.log('Received stopCapture, stopping now');
     if (mediaRecorder && mediaRecorder.state !== 'inactive') {
       mediaRecorder.stop();
     }
+    return true;
   }
-  return true;
+  // Don't handle other messages — let the service worker respond
 });
 
 async function startCapture(streamId, tabId, duration, delay) {
@@ -58,26 +60,30 @@ async function startCapture(streamId, tabId, duration, delay) {
         return;
       }
 
-      // Convert blob to base64 and send to service worker for download
-      // (chrome.downloads API not available in offscreen documents)
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64data = reader.result;
-        console.log('Sending blob to service worker for download, size:', base64data.length);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const filename = `scrollywood-${timestamp}.webm`;
 
-        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const filename = `scrollywood-${timestamp}.webm`;
+      // Download directly from offscreen using blob URL.
+      // Previous approach (base64 via sendMessage) silently fails for large
+      // recordings (100MB+ at 16Mbps) because the message is too large.
+      const blobUrl = URL.createObjectURL(blob);
+      console.log('Downloading via blob URL, blob size:', blob.size);
 
-        chrome.runtime.sendMessage({
-          action: 'downloadVideo',
-          dataUrl: base64data,
+      try {
+        const downloadId = await chrome.downloads.download({
+          url: blobUrl,
           filename: filename,
-        }, (response) => {
-          console.log('Download response:', response);
-          chrome.runtime.sendMessage({ action: 'recordingComplete' });
+          saveAs: true,
         });
-      };
-      reader.readAsDataURL(blob);
+        console.log('Download started, ID:', downloadId);
+      } catch (e) {
+        console.error('Download failed:', e);
+      } finally {
+        // Revoke after delay to let download read the blob
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      }
+
+      chrome.runtime.sendMessage({ action: 'recordingComplete' });
     };
 
     mediaRecorder.onerror = (event) => {
