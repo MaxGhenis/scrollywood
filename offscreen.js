@@ -63,25 +63,58 @@ async function startCapture(streamId, tabId, duration, delay) {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
       const filename = `scrollywood-${timestamp}.webm`;
 
-      // Download directly from offscreen using blob URL.
-      // Previous approach (base64 via sendMessage) silently fails for large
-      // recordings (100MB+ at 16Mbps) because the message is too large.
+      // Download via blob URL. Try multiple approaches since offscreen
+      // documents have limited API access and base64 via sendMessage
+      // silently fails for large recordings (100MB+ at 16Mbps).
       const blobUrl = URL.createObjectURL(blob);
       console.log('Downloading via blob URL, blob size:', blob.size);
 
-      try {
-        const downloadId = await chrome.downloads.download({
-          url: blobUrl,
-          filename: filename,
-          saveAs: true,
-        });
-        console.log('Download started, ID:', downloadId);
-      } catch (e) {
-        console.error('Download failed:', e);
-      } finally {
-        // Revoke after delay to let download read the blob
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+      let downloaded = false;
+
+      // Approach 1: chrome.downloads API directly in offscreen
+      if (typeof chrome.downloads?.download === 'function') {
+        try {
+          const downloadId = await chrome.downloads.download({
+            url: blobUrl,
+            filename: filename,
+            saveAs: true,
+          });
+          console.log('chrome.downloads succeeded, ID:', downloadId);
+          downloaded = true;
+        } catch (e) {
+          console.warn('chrome.downloads failed:', e.message);
+        }
       }
+
+      // Approach 2: anchor element click (DOM-based download)
+      if (!downloaded) {
+        try {
+          console.log('Trying anchor click download...');
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          console.log('Anchor click download triggered');
+          downloaded = true;
+        } catch (e) {
+          console.warn('Anchor click failed:', e.message);
+        }
+      }
+
+      // Approach 3: send blob URL to service worker (small message)
+      if (!downloaded) {
+        console.log('Sending blob URL to service worker for download...');
+        chrome.runtime.sendMessage({
+          action: 'downloadVideo',
+          dataUrl: blobUrl,
+          filename: filename,
+        });
+      }
+
+      // Revoke after delay to let download read the blob
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
 
       chrome.runtime.sendMessage({ action: 'recordingComplete' });
     };
