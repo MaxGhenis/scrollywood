@@ -106,6 +106,7 @@ describe('Scrollywood Background', () => {
         tabId: 123,
         duration: 60,
         delay: 2,
+        format: 'webm',
       });
     });
 

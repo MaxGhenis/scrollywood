@@ -6,9 +6,10 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-export async function startRecording(tabId, duration, delay) {
+export async function startRecording(tabId, duration, delay, format) {
   if (recording) return;
   recording = true;
+  format = format || 'webm';
 
   // Show "REC" badge
   chrome.action.setBadgeText({ text: 'REC' });
@@ -44,6 +45,7 @@ export async function startRecording(tabId, duration, delay) {
       tabId,
       duration,
       delay,
+      format,
     });
 
   } catch (error) {

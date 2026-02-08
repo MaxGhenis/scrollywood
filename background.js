@@ -12,7 +12,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Service worker received message:', message.action, message);
 
   if (message.action === 'startRecording') {
-    startRecording(message.tabId, message.duration, message.delay);
+    startRecording(message.tabId, message.duration, message.delay, message.format);
     sendResponse({ status: 'started' });
   }
   if (message.action === 'injectScroll') {
@@ -32,6 +32,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Force stop requested');
     chrome.runtime.sendMessage({ action: 'stopCapture' });
     sendResponse({ status: 'stopping' });
+  }
+  if (message.action === 'updateBadge') {
+    chrome.action.setBadgeText({ text: message.text || '' });
+    chrome.action.setBadgeBackgroundColor({ color: '#c9a227' });
+    sendResponse({ status: 'updated' });
   }
   if (message.action === 'recordingComplete') {
     handleRecordingComplete();

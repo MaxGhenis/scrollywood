@@ -24,6 +24,7 @@ async function init() {
     // Start recording
     const duration = parseInt(document.getElementById('duration').value) || 60;
     const delay = parseInt(document.getElementById('delay').value) || 2;
+    const format = document.getElementById('format').value || 'webm';
 
     btn.disabled = true;
     status.textContent = 'Starting recording...';
@@ -37,6 +38,7 @@ async function init() {
         tabId: tab.id,
         duration,
         delay,
+        format,
       });
 
       status.textContent = `Recording ${duration}s — stay on this tab!`;

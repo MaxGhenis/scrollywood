@@ -24,6 +24,7 @@ const files = [
   'background-logic.js',
   'offscreen.html',
   'offscreen.js',
+  'gif-encoder.js',
   'scroll-utils.js',
   'icon16.png',
   'icon48.png',
