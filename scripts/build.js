@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { execSync } from 'child_process';
-import { readFileSync, mkdirSync, existsSync } from 'fs';
+import { readFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 // Read version from manifest
@@ -15,21 +15,26 @@ if (!existsSync('dist')) {
 const filename = `scrollywood-v${version}.zip`;
 const outputPath = join('dist', filename);
 
-// Files to include in the extension
-const files = [
-  'manifest.json',
-  'popup.html',
-  'popup.js',
-  'background.js',
-  'background-logic.js',
-  'offscreen.html',
-  'offscreen.js',
-  'gif-encoder.js',
-  'scroll-utils.js',
-  'icon16.png',
-  'icon48.png',
-  'icon128.png',
-];
+const RUNTIME_FILE_PATTERN = /\.(html|js|json|png)$/;
+const EXCLUDED_FILES = new Set([
+  'CLAUDE.md',
+  'README.md',
+  'bun.lock',
+  'icon.svg',
+  'package.json',
+]);
+
+function getExtensionFiles() {
+  return readdirSync('.')
+    .filter((file) => statSync(file).isFile())
+    .filter((file) => RUNTIME_FILE_PATTERN.test(file))
+    .filter((file) => !file.endsWith('.test.js'))
+    .filter((file) => !EXCLUDED_FILES.has(file))
+    .sort();
+}
+
+// Files to include in the extension package
+const files = getExtensionFiles();
 
 // Create zip
 const fileList = files.join(' ');

@@ -17,6 +17,37 @@ export function createSmoothScrollFunction(totalDistance) {
   return (progress) => totalDistance * progress;
 }
 
+/**
+ * Calculate scroll progress with a short ease-in ramp so recordings do not
+ * lurch into motion on the first frames. The ramp preserves total distance
+ * over the full duration by slightly increasing the steady-state speed after
+ * the initial acceleration window.
+ */
+export function calculateEaseInProgress({
+  elapsedMs,
+  totalMs,
+  easeInMs = Math.min(800, totalMs * 0.15),
+}) {
+  if (totalMs <= 0) {
+    return 1;
+  }
+
+  const clampedElapsed = Math.max(0, Math.min(elapsedMs, totalMs));
+  const rampMs = Math.max(0, Math.min(easeInMs, totalMs));
+
+  if (rampMs === 0) {
+    return clampedElapsed / totalMs;
+  }
+
+  const normalizedTravelMs = totalMs - (rampMs / 2);
+
+  if (clampedElapsed < rampMs) {
+    return (clampedElapsed * clampedElapsed) / (2 * rampMs * normalizedTravelMs);
+  }
+
+  return (clampedElapsed - (rampMs / 2)) / normalizedTravelMs;
+}
+
 // ID for the style element that overrides scroll-behavior
 export const SCROLL_OVERRIDE_ID = 'scrollywood-scroll-override';
 
@@ -28,6 +59,29 @@ export const SCROLL_OVERRIDE_ID = 'scrollywood-scroll-override';
  */
 export function getScrollBehaviorOverrideCSS() {
   return `* { scroll-behavior: auto !important; }`;
+}
+
+/**
+ * Returns CSS that hides visible scrollbars without disabling scrolling.
+ * This keeps the captured video clean while preserving the page's layout
+ * and scroll behavior.
+ */
+export function getScrollbarHideCSS() {
+  return `
+    html, body, * {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar,
+    *::-webkit-scrollbar {
+      width: 0 !important;
+      height: 0 !important;
+      display: none !important;
+      background: transparent !important;
+    }
+  `;
 }
 
 /**
@@ -109,7 +163,10 @@ export function createScrollExecutor({
 
   function tick() {
     const elapsed = Date.now() - startTime;
-    const progress = Math.min(elapsed / totalMs, 1);
+    const progress = calculateEaseInProgress({
+      elapsedMs: elapsed,
+      totalMs,
+    });
     const position = totalHeight * progress;
 
     scrollTo(position);

@@ -30,10 +30,10 @@ One-click smooth scroll video recording for any webpage. Capture beautiful, cine
 bun install
 
 # Run tests
-bun test
+bun run test
 
 # Run tests in watch mode
-bun test:watch
+bun run test:watch
 
 # Build extension ZIP for distribution
 bun run build
@@ -99,6 +99,16 @@ Scrollywood/
 ### Why offscreen document?
 
 Chrome Manifest V3 service workers don't have DOM access, but `MediaRecorder` requires it. The offscreen document provides a DOM context for video recording while the service worker handles orchestration.
+
+### Popup testing
+
+For debugging or automation, the popup can target a specific tab when opened directly:
+
+```text
+chrome-extension://<extension-id>/popup.html?tab=<tab-id>
+```
+
+Without the `tab` query param, the popup falls back to the current active tab.
 
 ## License
 

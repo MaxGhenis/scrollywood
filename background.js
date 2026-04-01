@@ -2,6 +2,7 @@
 import { startRecording, handleRecordingComplete, isRecording } from './background-logic.js';
 import {
   getScrollBehaviorOverrideCSS,
+  getScrollbarHideCSS,
   getOverflowOverrideCSS,
   SCROLL_OVERRIDE_ID,
   calculateTotalScrollHeight,
@@ -12,8 +13,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Service worker received message:', message.action, message);
 
   if (message.action === 'startRecording') {
-    startRecording(message.tabId, message.duration, message.delay, message.format);
-    sendResponse({ status: 'started' });
+    startRecording(message.tabId, message.duration, message.delay, message.format)
+      .then((result) => {
+        if (!result?.started) {
+          sendResponse({
+            status: 'error',
+            message: result?.message || 'Unable to start recording.',
+          });
+          return;
+        }
+
+        sendResponse({
+          status: 'started',
+          duration: result.duration,
+          delay: result.delay,
+          format: result.format,
+        });
+      })
+      .catch((error) => {
+        sendResponse({
+          status: 'error',
+          message: error.message || 'Unable to start recording.',
+        });
+      });
+    return true;
   }
   if (message.action === 'injectScroll') {
     console.log('Got injectScroll request for tab', message.tabId, 'duration', message.duration);
@@ -40,6 +63,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.action === 'recordingComplete') {
     handleRecordingComplete();
+    if (message.tabId) {
+      cleanupCaptureOverrides(message.tabId);
+    }
     console.log('Recording saved!');
   }
   return true;
@@ -65,7 +91,7 @@ async function injectScrollScript(tabId, duration) {
     console.log('Injecting scroll script for', duration, 'seconds');
     await chrome.scripting.executeScript({
       target: { tabId, allFrames: true },
-      func: (scrollDuration, overrideCSS, overflowCSS, overrideId, minThreshold) => {
+      func: (scrollDuration, overrideCSS, scrollbarCSS, overflowCSS, overrideId, minThreshold) => {
         console.log('[Scrollywood] Scroll script injected, duration:', scrollDuration);
 
         // Detect iframe-wrapped pages (e.g. maxghenis.com/mita wrapping maxghenis.github.io/mita/)
@@ -83,10 +109,19 @@ async function injectScrollScript(tabId, duration) {
         }
 
         // Override CSS scroll-behavior to prevent conflicts with programmatic scrolling
-        const styleOverride = document.createElement('style');
-        styleOverride.id = overrideId;
-        styleOverride.textContent = overrideCSS;
-        document.head.appendChild(styleOverride);
+        const mount = document.head || document.documentElement;
+        if (!mount) {
+          return;
+        }
+
+        let styleOverride = document.getElementById(overrideId);
+        if (!styleOverride) {
+          styleOverride = document.createElement('style');
+          styleOverride.id = overrideId;
+          mount.appendChild(styleOverride);
+        }
+
+        styleOverride.textContent = `${overrideCSS}\n${scrollbarCSS}`;
 
         // Calculate scroll height using multiple approaches
         const docScrollHeight = document.documentElement.scrollHeight;
@@ -214,9 +249,46 @@ async function injectScrollScript(tabId, duration) {
         // Get scroll target (either a container element or window)
         const scrollContainer = window.__scrollywoodContainer;
 
-        // Use setInterval pattern (matches tested createScrollExecutor)
-        const INTERVAL_MS = 16; // ~60fps
         const totalMs = scrollDuration * 1000;
+        const easeInMs = Math.min(800, totalMs * 0.15);
+        const CAPTURE_CLEANUP_BUFFER_MS = 2200;
+        let animationFrameId = null;
+        let cleanupTimerId = null;
+
+        if (typeof window.__scrollywoodCancel === 'function') {
+          window.__scrollywoodCancel();
+        }
+
+        function cleanup() {
+          if (animationFrameId !== null) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+          }
+
+          if (cleanupTimerId !== null) {
+            clearTimeout(cleanupTimerId);
+            cleanupTimerId = null;
+          }
+
+          const override = document.getElementById(overrideId);
+          if (override) override.remove();
+
+          delete window.__scrollywoodCancel;
+          delete window.__scrollywoodContainer;
+        }
+
+        function scheduleCleanup(reason) {
+          if (cleanupTimerId !== null) {
+            return;
+          }
+
+          cleanupTimerId = setTimeout(() => {
+            cleanup();
+            console.log(`[Scrollywood] Scroll complete (${reason})`);
+          }, CAPTURE_CLEANUP_BUFFER_MS);
+        }
+
+        window.__scrollywoodCancel = cleanup;
 
         // Prefer smooth linear scrolling over step-based jumping.
         // Smooth scroll at 60fps naturally triggers IntersectionObserver as elements
@@ -227,38 +299,52 @@ async function injectScrollScript(tabId, duration) {
         // navigable step elements but no standard scrollable content.
 
         if (totalHeight >= minThreshold) {
-          // Primary: smooth linear scroll
-          const pixelsPerTick = totalHeight / (totalMs / INTERVAL_MS);
-          let currentScroll = 0;
-          let intervalId = null;
+          // Primary: smooth linear scroll on animation frames so sticky/scrollytelling
+          // transforms are sampled on the browser's paint cycle instead of a timer.
+          // Use a short ease-in ramp to avoid a visible lurch on the first frames.
+          let startTime = null;
 
-          function tick() {
-            currentScroll += pixelsPerTick;
-            if (currentScroll >= totalHeight) {
-              currentScroll = totalHeight;
+          function calculateProgress(elapsedMs) {
+            const clampedElapsed = Math.max(0, Math.min(elapsedMs, totalMs));
+
+            if (easeInMs <= 0) {
+              return clampedElapsed / totalMs;
             }
 
-            if (scrollContainer) {
-              scrollContainer.scrollTop = currentScroll;
-              scrollContainer.dispatchEvent(new Event('scroll', { bubbles: true }));
-            } else {
-              window.scrollTo({ top: currentScroll, behavior: 'instant' });
-              window.dispatchEvent(new Event('scroll'));
-              document.dispatchEvent(new Event('scroll'));
+            const normalizedTravelMs = totalMs - (easeInMs / 2);
+
+            if (clampedElapsed < easeInMs) {
+              return (clampedElapsed * clampedElapsed) / (2 * easeInMs * normalizedTravelMs);
             }
 
-            if (currentScroll >= totalHeight) {
-              clearInterval(intervalId);
-              const override = document.getElementById(overrideId);
-              if (override) override.remove();
-              delete window.__scrollywoodContainer;
-              console.log('[Scrollywood] Scroll complete');
-            }
+            return (clampedElapsed - (easeInMs / 2)) / normalizedTravelMs;
           }
 
-          console.log('[Scrollywood] Using smooth scroll, totalHeight:', totalHeight);
-          intervalId = setInterval(tick, INTERVAL_MS);
-          tick();
+          function step(timestamp) {
+            if (startTime === null) {
+              startTime = timestamp;
+            }
+
+            const elapsed = timestamp - startTime;
+            const progress = calculateProgress(elapsed);
+            const nextScroll = totalHeight * progress;
+
+            if (scrollContainer) {
+              scrollContainer.scrollTop = nextScroll;
+            } else {
+              window.scrollTo(0, nextScroll);
+            }
+
+            if (progress >= 1) {
+              scheduleCleanup('animation-frame');
+              return;
+            }
+
+            animationFrameId = requestAnimationFrame(step);
+          }
+
+          console.log('[Scrollywood] Using animation-frame scroll, totalHeight:', totalHeight);
+          animationFrameId = requestAnimationFrame(step);
         } else {
           // Fallback: step-based scrolling for pages with no standard scroll
           const stepSelectors = [
@@ -279,19 +365,12 @@ async function injectScrollScript(tabId, duration) {
           }
 
           if (stepElements.length > 0) {
-            // Remove the CSS override - scrollIntoView doesn't need it
-            const existingOverride = document.getElementById(overrideId);
-            if (existingOverride) {
-              existingOverride.remove();
-              console.log('[Scrollywood] Removed CSS override for step-based scroll');
-            }
-
             const timePerStep = (scrollDuration * 1000) / stepElements.length;
             let currentStep = 0;
 
             function scrollToNextStep() {
               if (currentStep >= stepElements.length) {
-                console.log('[Scrollywood] Step-based scroll complete');
+                scheduleCleanup('step-based');
                 return;
               }
 
@@ -306,14 +385,42 @@ async function injectScrollScript(tabId, duration) {
             scrollToNextStep();
           } else {
             console.log('[Scrollywood] No scrollable content and no step elements found');
-            const override = document.getElementById(overrideId);
-            if (override) override.remove();
+            cleanup();
           }
         }
       },
-      args: [duration, getScrollBehaviorOverrideCSS(), getOverflowOverrideCSS(), SCROLL_OVERRIDE_ID, MIN_SCROLL_THRESHOLD],
+      args: [
+        duration,
+        getScrollBehaviorOverrideCSS(),
+        getScrollbarHideCSS(),
+        getOverflowOverrideCSS(),
+        SCROLL_OVERRIDE_ID,
+        MIN_SCROLL_THRESHOLD,
+      ],
     });
   } catch (error) {
     console.error('Failed to inject scroll script:', error);
+  }
+}
+
+async function cleanupCaptureOverrides(tabId) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      func: (overrideId) => {
+        if (typeof window.__scrollywoodCancel === 'function') {
+          window.__scrollywoodCancel();
+          return;
+        }
+
+        const styleOverride = document.getElementById(overrideId);
+        if (styleOverride) {
+          styleOverride.remove();
+        }
+      },
+      args: [SCROLL_OVERRIDE_ID],
+    });
+  } catch (error) {
+    console.warn('Failed to clean up capture overrides:', error);
   }
 }

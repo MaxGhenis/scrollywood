@@ -2,7 +2,9 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   calculateScrollParams,
   createSmoothScrollFunction,
+  calculateEaseInProgress,
   getScrollBehaviorOverrideCSS,
+  getScrollbarHideCSS,
   getOverflowOverrideCSS,
   SCROLL_OVERRIDE_ID,
   calculateTotalScrollHeight,
@@ -39,6 +41,30 @@ describe('scroll-utils', () => {
     });
   });
 
+  describe('calculateEaseInProgress', () => {
+    it('should return 0 at the beginning and 1 at the end', () => {
+      expect(calculateEaseInProgress({ elapsedMs: 0, totalMs: 1000 })).toBe(0);
+      expect(calculateEaseInProgress({ elapsedMs: 1000, totalMs: 1000 })).toBe(1);
+    });
+
+    it('should start slower than linear progress during the ease-in ramp', () => {
+      const eased = calculateEaseInProgress({
+        elapsedMs: 100,
+        totalMs: 1000,
+        easeInMs: 400,
+      });
+      expect(eased).toBeLessThan(0.1);
+    });
+
+    it('should fall back to linear progress when easeInMs is 0', () => {
+      expect(calculateEaseInProgress({
+        elapsedMs: 250,
+        totalMs: 1000,
+        easeInMs: 0,
+      })).toBe(0.25);
+    });
+  });
+
   describe('getScrollBehaviorOverrideCSS', () => {
     it('should return CSS that disables smooth scrolling', () => {
       const css = getScrollBehaviorOverrideCSS();
@@ -70,6 +96,21 @@ describe('scroll-utils', () => {
       const css = getOverflowOverrideCSS();
       expect(css).toContain('html');
       expect(css).toContain('body');
+    });
+  });
+
+  describe('getScrollbarHideCSS', () => {
+    it('should hide scrollbars without changing overflow', () => {
+      const css = getScrollbarHideCSS();
+      expect(css).toContain('scrollbar-width');
+      expect(css).toContain('none');
+      expect(css).not.toContain('overflow: hidden');
+    });
+
+    it('should include WebKit scrollbar selectors for Chrome capture', () => {
+      const css = getScrollbarHideCSS();
+      expect(css).toContain('::-webkit-scrollbar');
+      expect(css).toContain('display: none');
     });
   });
 

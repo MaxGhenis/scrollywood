@@ -66,10 +66,26 @@ describe('Scrollywood Background', () => {
 
       await startRecording(123, 60, 2);
 
-      expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith({
+      expect(mockChrome.scripting.executeScript).toHaveBeenCalledWith(expect.objectContaining({
         target: { tabId: 123, allFrames: true },
         func: expect.any(Function),
-      });
+        args: [
+          expect.any(String),
+          expect.stringContaining('scrollbar-width: none'),
+        ],
+      }));
+    });
+
+    it('should inject capture CSS before recording starts', async () => {
+      mockChrome.scripting.executeScript.mockResolvedValue([]);
+      mockChrome.tabCapture.getMediaStreamId.mockImplementation((opts, cb) => cb('stream-123'));
+      mockChrome.runtime.getContexts.mockResolvedValue([{ type: 'OFFSCREEN_DOCUMENT' }]);
+
+      await startRecording(123, 60, 2);
+
+      const call = mockChrome.scripting.executeScript.mock.calls[0][0];
+      expect(call.args[1]).toContain('scroll-behavior: auto');
+      expect(call.args[1]).toContain('::-webkit-scrollbar');
     });
 
     it('should get media stream ID for the tab', async () => {
@@ -86,11 +102,34 @@ describe('Scrollywood Background', () => {
     });
 
     it('should clear badge on error', async () => {
-      mockChrome.scripting.executeScript.mockRejectedValue(new Error('Script failed'));
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockChrome.scripting.executeScript.mockRejectedValueOnce(new Error('Script failed'));
+      mockChrome.scripting.executeScript.mockResolvedValueOnce([]);
 
       await startRecording(123, 60, 2);
 
       expect(mockChrome.action.setBadgeText).toHaveBeenLastCalledWith({ text: '' });
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('should attempt to clear capture CSS when startup fails after injection', async () => {
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      mockChrome.scripting.executeScript.mockResolvedValueOnce([]);
+      mockChrome.scripting.executeScript.mockResolvedValueOnce([]);
+      mockChrome.tabCapture.getMediaStreamId.mockImplementation((opts, cb) => {
+        mockChrome.runtime.lastError = { message: 'capture failed' };
+        cb(undefined);
+      });
+
+      await startRecording(123, 60, 2);
+
+      expect(mockChrome.scripting.executeScript).toHaveBeenCalledTimes(2);
+      expect(mockChrome.scripting.executeScript.mock.calls[1][0]).toEqual(expect.objectContaining({
+        target: { tabId: 123, allFrames: true },
+        func: expect.any(Function),
+        args: [expect.any(String)],
+      }));
+      consoleErrorSpy.mockRestore();
     });
 
     it('should send startCapture message to offscreen document', async () => {
@@ -124,6 +163,39 @@ describe('Scrollywood Background', () => {
 
       // Should only have been called once for tab 123
       expect(mockChrome.tabCapture.getMediaStreamId).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return an error result when no tab is available', async () => {
+      const result = await startRecording(undefined, 60, 2);
+
+      expect(result).toEqual({
+        started: false,
+        message: 'No active tab is available to capture.',
+      });
+      expect(mockChrome.action.setBadgeText).not.toHaveBeenCalled();
+    });
+
+    it('should normalize invalid duration, delay, and format values', async () => {
+      mockChrome.scripting.executeScript.mockResolvedValue([]);
+      mockChrome.tabCapture.getMediaStreamId.mockImplementation((opts, cb) => cb('stream-123'));
+      mockChrome.runtime.getContexts.mockResolvedValue([{ type: 'OFFSCREEN_DOCUMENT' }]);
+
+      const result = await startRecording(123, 999, -3, 'mp4');
+
+      expect(result).toEqual({
+        started: true,
+        duration: 300,
+        delay: 0,
+        format: 'webm',
+      });
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith({
+        action: 'startCapture',
+        streamId: 'stream-123',
+        tabId: 123,
+        duration: 300,
+        delay: 0,
+        format: 'webm',
+      });
     });
   });
 

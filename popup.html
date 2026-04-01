@@ -1,11 +1,35 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scrollywood</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Quicksand:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Quicksand:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    :root {
+      color-scheme: dark;
+      --bg-top: #08080c;
+      --bg-bottom: #131522;
+      --panel: rgba(12, 12, 17, 0.9);
+      --panel-strong: rgba(22, 24, 34, 0.95);
+      --border: rgba(238, 199, 93, 0.18);
+      --border-strong: rgba(238, 199, 93, 0.38);
+      --text: #f6f1e7;
+      --muted: rgba(246, 241, 231, 0.64);
+      --muted-strong: rgba(246, 241, 231, 0.82);
+      --accent: #efc75a;
+      --accent-strong: #fff2bf;
+      --danger: #ff6f61;
+      --danger-shadow: rgba(255, 111, 97, 0.36);
+      --shadow: rgba(0, 0, 0, 0.5);
+      --radius-lg: 24px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --transition: 180ms ease;
+    }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -13,418 +37,723 @@
     }
 
     body {
-      width: 280px;
+      width: 360px;
+      min-height: 620px;
       font-family: 'Quicksand', sans-serif;
-      background: #0a0a0f;
-      color: #f5f0e8;
-      position: relative;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(239, 199, 90, 0.16), transparent 32%),
+        linear-gradient(180deg, var(--bg-top) 0%, var(--bg-bottom) 100%);
       overflow: hidden;
     }
 
-    /* Film grain overlay */
     body::before {
       content: '';
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%' height='100%' filter='url(%23noise)'/%3E%3C/svg%3E");
-      opacity: 0.03;
+      inset: 0;
       pointer-events: none;
-      z-index: 100;
+      opacity: 0.05;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.78' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
     }
 
-    /* Art deco border frame */
-    .frame {
+    .shell {
       position: relative;
-      padding: 20px 16px;
-      background: linear-gradient(180deg, #0f0f18 0%, #0a0a0f 100%);
+      padding: 18px;
     }
 
-    .frame::before {
+    .shell::before,
+    .shell::after {
       content: '';
       position: absolute;
-      top: 8px;
-      left: 8px;
-      right: 8px;
-      bottom: 8px;
-      border: 1px solid #c9a227;
+      top: 20px;
+      bottom: 20px;
+      width: 10px;
+      border-radius: 999px;
+      background:
+        radial-gradient(circle at center, rgba(0, 0, 0, 0.5) 0 45%, transparent 46%) center/10px 36px repeat-y;
+      opacity: 0.46;
       pointer-events: none;
-      opacity: 0.4;
     }
 
-    /* Film perforations */
-    .perforations {
+    .shell::before {
+      left: 6px;
+    }
+
+    .shell::after {
+      right: 6px;
+    }
+
+    .panel {
+      position: relative;
+      padding: 20px;
+      border-radius: 28px;
+      background:
+        linear-gradient(180deg, rgba(23, 24, 33, 0.94) 0%, rgba(11, 12, 18, 0.96) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      box-shadow:
+        0 28px 60px rgba(0, 0, 0, 0.46),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: '';
       position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 12px;
+      inset: 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      pointer-events: none;
+    }
+
+    .hero {
+      position: relative;
+      padding: 2px 0 18px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .hero-meta {
       display: flex;
-      flex-direction: column;
-      justify-content: space-around;
-      padding: 16px 0;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
     }
 
-    .perforations.left { left: 0; }
-    .perforations.right { right: 0; }
-
-    .perf {
-      width: 6px;
-      height: 10px;
-      background: #1a1a24;
-      border-radius: 1px;
-      margin: 0 auto;
-      box-shadow: inset 0 1px 2px rgba(0,0,0,0.8);
+    .eyebrow,
+    .target-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted-strong);
+      border: 1px solid rgba(255, 255, 255, 0.06);
     }
 
-    /* Header */
-    .header {
-      text-align: center;
-      margin-bottom: 20px;
-      position: relative;
-    }
-
-    .header::after {
-      content: '';
-      display: block;
-      width: 60px;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, #c9a227, transparent);
-      margin: 12px auto 0;
+    .target-chip {
+      max-width: 156px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      justify-content: center;
+      color: var(--accent-strong);
+      border-color: rgba(239, 199, 90, 0.22);
+      background: rgba(239, 199, 90, 0.08);
     }
 
     .logo {
       font-family: 'Cinzel', serif;
-      font-size: 22px;
+      font-size: 30px;
       font-weight: 700;
-      letter-spacing: 0.15em;
-      background: linear-gradient(180deg, #f4d03f 0%, #c9a227 50%, #8b6914 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      text-shadow: 0 2px 20px rgba(201, 162, 39, 0.3);
-    }
-
-    .tagline {
-      font-size: 9px;
-      letter-spacing: 0.3em;
+      letter-spacing: 0.09em;
       text-transform: uppercase;
-      color: #6b6b7b;
-      margin-top: 4px;
+      color: transparent;
+      background: linear-gradient(180deg, #fff6d9 0%, #efc75a 50%, #b27b17 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      text-shadow: 0 8px 28px rgba(239, 199, 90, 0.14);
     }
 
-    /* Settings */
-    .settings {
+    .subtitle {
+      margin-top: 8px;
+      max-width: 250px;
+      font-size: 14px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .target-meta {
+      margin-top: 12px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+      min-height: 18px;
+    }
+
+    .plan {
+      margin-top: 18px;
+      padding: 16px;
+      border-radius: var(--radius-md);
+      background:
+        linear-gradient(140deg, rgba(239, 199, 90, 0.12), rgba(255, 255, 255, 0.02) 44%, rgba(255, 255, 255, 0.03));
+      border: 1px solid var(--border);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    }
+
+    .plan-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: rgba(239, 199, 90, 0.88);
+    }
+
+    .plan-title {
+      margin-top: 8px;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--text);
+    }
+
+    .plan-note {
+      margin-top: 7px;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .section {
+      margin-top: 18px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--muted-strong);
+    }
+
+    .section-caption {
+      font-size: 11px;
+      color: rgba(246, 241, 231, 0.42);
+    }
+
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .preset {
       display: flex;
       flex-direction: column;
-      gap: 14px;
-      margin-bottom: 20px;
+      gap: 3px;
+      padding: 10px 8px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      cursor: pointer;
+      transition:
+        transform var(--transition),
+        border-color var(--transition),
+        background var(--transition),
+        box-shadow var(--transition);
     }
 
-    .setting {
-      position: relative;
+    .preset:hover {
+      transform: translateY(-1px);
+      border-color: rgba(239, 199, 90, 0.28);
     }
 
-    .setting-label {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: #8b8b9b;
-      margin-bottom: 6px;
+    .preset:disabled,
+    .format-option:disabled,
+    .field-control input:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
     }
 
-    .setting-label::before {
-      content: '◆';
-      font-size: 6px;
-      color: #c9a227;
+    .preset:disabled:hover,
+    .format-option:disabled:hover {
+      transform: none;
+      border-color: rgba(255, 255, 255, 0.08);
     }
 
-    .input-wrap {
-      position: relative;
-      display: flex;
-      align-items: center;
+    .preset[aria-pressed='true'] {
+      background: rgba(239, 199, 90, 0.12);
+      border-color: rgba(239, 199, 90, 0.5);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
     }
 
-    .input-wrap input {
-      width: 100%;
-      padding: 10px 40px 10px 14px;
-      font-family: 'Quicksand', sans-serif;
+    .preset-time {
       font-size: 15px;
-      font-weight: 600;
-      color: #f5f0e8;
-      background: #12121c;
-      border: 1px solid #2a2a3a;
-      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    .preset-name {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .field-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted-strong);
+    }
+
+    .field-control {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .field-control input {
+      width: 100%;
+      padding: 14px 44px 14px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font: inherit;
+      font-size: 16px;
+      font-weight: 700;
       outline: none;
-      transition: all 0.3s ease;
+      transition:
+        border-color var(--transition),
+        box-shadow var(--transition),
+        background var(--transition);
     }
 
-    .input-wrap input:focus {
-      border-color: #c9a227;
-      box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.15);
+    .field-control input:focus {
+      border-color: rgba(239, 199, 90, 0.42);
+      background: rgba(239, 199, 90, 0.05);
+      box-shadow: 0 0 0 3px rgba(239, 199, 90, 0.1);
     }
 
-    .input-wrap input::-webkit-inner-spin-button,
-    .input-wrap input::-webkit-outer-spin-button {
+    .field-control input::-webkit-inner-spin-button,
+    .field-control input::-webkit-outer-spin-button {
       -webkit-appearance: none;
     }
 
-    .input-unit {
+    .field-unit {
       position: absolute;
       right: 12px;
       font-size: 11px;
-      font-weight: 500;
-      color: #4a4a5a;
-      letter-spacing: 0.05em;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: rgba(246, 241, 231, 0.38);
+      pointer-events: none;
     }
 
-    .input-wrap select {
-      width: 100%;
-      padding: 10px 14px;
-      font-family: 'Quicksand', sans-serif;
-      font-size: 15px;
-      font-weight: 600;
-      color: #f5f0e8;
-      background: #12121c;
-      border: 1px solid #2a2a3a;
-      border-radius: 4px;
-      outline: none;
-      transition: all 0.3s ease;
-      -webkit-appearance: none;
-      appearance: none;
+    .format-toggle {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .format-option {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 13px 14px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
       cursor: pointer;
-      background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%234a4a5a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 12px center;
-      padding-right: 32px;
+      transition:
+        transform var(--transition),
+        border-color var(--transition),
+        background var(--transition);
     }
 
-    .input-wrap select:focus {
-      border-color: #c9a227;
-      box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.15);
+    .format-option:hover {
+      transform: translateY(-1px);
+      border-color: rgba(239, 199, 90, 0.24);
     }
 
-    .input-wrap select option {
-      background: #12121c;
-      color: #f5f0e8;
+    .format-option[aria-pressed='true'] {
+      background: linear-gradient(180deg, rgba(239, 199, 90, 0.15), rgba(239, 199, 90, 0.08));
+      border-color: rgba(239, 199, 90, 0.48);
     }
 
-    /* Record button - clapperboard inspired */
+    .format-name {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .format-copy {
+      font-size: 12px;
+      line-height: 1.35;
+      color: var(--muted);
+    }
+
     .record-btn {
       width: 100%;
-      position: relative;
-      padding: 14px 20px;
-      font-family: 'Cinzel', serif;
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.2em;
-      text-transform: uppercase;
-      color: #0a0a0f;
-      background: linear-gradient(180deg, #f4d03f 0%, #c9a227 100%);
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 18px;
       border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      overflow: hidden;
-      transition: all 0.3s ease;
+      border-radius: 18px;
+      color: #1a1105;
+      background: linear-gradient(180deg, #fff1b2 0%, #efc75a 55%, #cd9531 100%);
       box-shadow:
-        0 4px 15px rgba(201, 162, 39, 0.3),
-        inset 0 1px 0 rgba(255,255,255,0.3);
+        0 16px 30px rgba(239, 199, 90, 0.24),
+        inset 0 1px 0 rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      transition:
+        transform var(--transition),
+        box-shadow var(--transition),
+        filter var(--transition);
     }
 
-    .record-btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-      transition: left 0.5s ease;
-    }
-
-    .record-btn:hover {
+    .record-btn:hover:not(:disabled) {
       transform: translateY(-1px);
       box-shadow:
-        0 6px 20px rgba(201, 162, 39, 0.4),
-        inset 0 1px 0 rgba(255,255,255,0.3);
+        0 20px 34px rgba(239, 199, 90, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.42);
     }
 
-    .record-btn:hover::before {
-      left: 100%;
-    }
-
-    .record-btn:active {
+    .record-btn:active:not(:disabled) {
       transform: translateY(0);
     }
 
     .record-btn:disabled {
-      background: #2a2a3a;
-      color: #5a5a6a;
       cursor: not-allowed;
+      filter: saturate(0.5);
       box-shadow: none;
     }
 
-    .record-btn:disabled::before {
-      display: none;
+    .record-btn.is-stop {
+      color: #fff7f4;
+      background: linear-gradient(180deg, #ff9387 0%, #ff6f61 56%, #c64139 100%);
+      box-shadow:
+        0 18px 34px var(--danger-shadow),
+        inset 0 1px 0 rgba(255, 255, 255, 0.18);
     }
 
-    .btn-content {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .rec-icon {
-      width: 10px;
-      height: 10px;
-      background: #c41e3a;
+    .record-mark {
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
-      box-shadow: 0 0 8px rgba(196, 30, 58, 0.6);
+      background: #b11a13;
+      box-shadow: 0 0 18px rgba(177, 26, 19, 0.34);
+      transition: transform var(--transition), background var(--transition);
     }
 
-    .record-btn:disabled .rec-icon {
-      background: #4a4a5a;
-      box-shadow: none;
+    .record-btn.is-stop .record-mark {
+      background: #fff7f4;
+      animation: pulse 1s ease-in-out infinite;
+      box-shadow: 0 0 18px rgba(255, 247, 244, 0.36);
     }
 
-    /* Status */
+    .record-copy {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 3px;
+      text-align: left;
+    }
+
+    .record-label {
+      font-family: 'Cinzel', serif;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .record-meta {
+      font-size: 12px;
+      color: rgba(26, 17, 5, 0.72);
+    }
+
+    .record-btn.is-stop .record-meta {
+      color: rgba(255, 247, 244, 0.78);
+    }
+
+    .record-arrow {
+      font-size: 18px;
+      font-weight: 700;
+    }
+
     .status {
       margin-top: 14px;
       min-height: 18px;
-      text-align: center;
-      font-size: 11px;
-      font-weight: 500;
-      color: #6b6b7b;
-      letter-spacing: 0.05em;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
     }
 
-    .status.recording {
-      color: #c41e3a;
-      animation: pulse 1.5s ease-in-out infinite;
+    .status[data-tone='loading'],
+    .status[data-tone='recording'] {
+      color: var(--accent-strong);
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+    .status[data-tone='error'] {
+      color: #ffb8b0;
     }
 
-    .hint {
-      text-align: center;
-      font-size: 9px;
-      color: #4a4a5a;
-      margin-top: 8px;
-      letter-spacing: 0.03em;
-    }
-
-    /* Footer decoration */
-    .footer-deco {
+    .footer {
+      margin-top: 14px;
       display: flex;
-      justify-content: center;
       align-items: center;
-      gap: 8px;
-      margin-top: 16px;
-      opacity: 0.3;
-    }
-
-    .footer-deco span {
-      font-size: 8px;
-      color: #c9a227;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 11px;
+      color: rgba(246, 241, 231, 0.42);
     }
 
     .footer-line {
-      width: 30px;
+      flex: 1;
       height: 1px;
-      background: linear-gradient(90deg, #c9a227, transparent);
+      background: linear-gradient(90deg, transparent, rgba(239, 199, 90, 0.36), transparent);
     }
 
-    .footer-line:last-child {
-      background: linear-gradient(90deg, transparent, #c9a227);
+    .footer-copy {
+      white-space: nowrap;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .panel[data-state='unsupported'] .plan {
+      border-color: rgba(255, 111, 97, 0.26);
+      background: linear-gradient(145deg, rgba(255, 111, 97, 0.12), rgba(255, 255, 255, 0.02));
+    }
+
+    .panel[data-state='unsupported'] .target-chip {
+      color: #ffc6c0;
+      border-color: rgba(255, 111, 97, 0.3);
+      background: rgba(255, 111, 97, 0.08);
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.55;
+        transform: scale(0.84);
+      }
+    }
+
+    /* --- Entrance animations --- */
+
+    @keyframes fadeUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes logoReveal {
+      from {
+        opacity: 0;
+        letter-spacing: 0.24em;
+        filter: blur(4px);
+      }
+      to {
+        opacity: 1;
+        letter-spacing: 0.09em;
+        filter: blur(0);
+      }
+    }
+
+    .hero,
+    .section,
+    .fields,
+    .record-btn,
+    .status,
+    .footer {
+      animation: fadeUp 420ms ease-out both;
+    }
+
+    .hero             { animation-delay: 60ms; }
+    .hero .logo       { animation: logoReveal 500ms ease-out 80ms both; }
+    .section:nth-of-type(1) { animation-delay: 120ms; }
+    .fields           { animation-delay: 160ms; }
+    .section:nth-of-type(2) { animation-delay: 200ms; }
+    .record-btn       { animation-delay: 260ms; }
+    .status           { animation-delay: 300ms; }
+    .footer           { animation-delay: 340ms; }
+
+    /* --- Idle record mark glow --- */
+
+    @keyframes idleGlow {
+      0%, 100% {
+        box-shadow: 0 0 12px rgba(177, 26, 19, 0.28);
+      }
+      50% {
+        box-shadow: 0 0 22px rgba(177, 26, 19, 0.52);
+      }
+    }
+
+    .record-btn:not(.is-stop) .record-mark {
+      animation: idleGlow 2.4s ease-in-out infinite;
+    }
+
+    /* --- Preset / format click pop --- */
+
+    @keyframes selectPop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(0.94); }
+      100% { transform: scale(1); }
+    }
+
+    .preset[aria-pressed='true'],
+    .format-option[aria-pressed='true'] {
+      animation: selectPop 220ms ease-out;
+    }
+
+    /* --- Plan box shimmer on update --- */
+
+    .plan {
+      transition: border-color 300ms ease, background 300ms ease;
+    }
+
+    .plan-title,
+    .plan-note {
+      transition: opacity 180ms ease;
+    }
+
+    /* --- Recording state vignette --- */
+
+    @keyframes recVignette {
+      0%, 100% { opacity: 0.06; }
+      50%      { opacity: 0.14; }
+    }
+
+    .panel[data-state='recording']::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 28px;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 50%, rgba(255, 80, 60, 0.18) 100%);
+      animation: recVignette 2s ease-in-out infinite;
     }
   </style>
 </head>
 <body>
-  <div class="frame">
-    <!-- Film perforations -->
-    <div class="perforations left">
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-    </div>
-    <div class="perforations right">
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-      <div class="perf"></div>
-    </div>
-
-    <!-- Header -->
-    <div class="header">
-      <div class="logo">Scrollywood</div>
-      <div class="tagline">Smooth Scroll Cinema</div>
-    </div>
-
-    <!-- Settings -->
-    <div class="settings">
-      <div class="setting">
-        <label class="setting-label">Scroll Duration</label>
-        <div class="input-wrap">
-          <input type="number" id="duration" value="60" min="5" max="300">
-          <span class="input-unit">sec</span>
+  <main class="shell">
+    <section id="panel" class="panel" data-state="ready">
+      <header class="hero">
+        <div class="hero-meta">
+          <span class="eyebrow">v1.0</span>
+          <span id="targetChip" class="target-chip">Current tab</span>
         </div>
-      </div>
+        <h1 class="logo">Scrollywood</h1>
+        <p class="subtitle">Smooth-scroll capture for story pages, product reveals, and long reads.</p>
+        <p id="targetMeta" class="target-meta">Checking the page you have in focus.</p>
 
-      <div class="setting">
-        <label class="setting-label">Delay Before Roll</label>
-        <div class="input-wrap">
-          <input type="number" id="delay" value="2" min="0" max="10">
-          <span class="input-unit">sec</span>
+        <div class="plan">
+          <div class="plan-label">Capture Plan</div>
+          <div id="planTitle" class="plan-title">60s WebM with a 2s lead-in</div>
+          <div id="planNote" class="plan-note">WebM exports fastest and keeps the cleanest motion.</div>
         </div>
-      </div>
+      </header>
 
-      <div class="setting">
-        <label class="setting-label">Output Format</label>
-        <div class="input-wrap">
-          <select id="format">
-            <option value="webm">WebM</option>
-            <option value="gif">GIF</option>
-          </select>
+      <section class="section">
+        <div class="section-head">
+          <span class="section-title">Pacing</span>
+          <span class="section-caption">Quick presets</span>
         </div>
-      </div>
-    </div>
+        <div id="presetGrid" class="preset-grid">
+          <button type="button" class="preset" data-duration="15" aria-pressed="false">
+            <span class="preset-time">15s</span>
+            <span class="preset-name">Teaser</span>
+          </button>
+          <button type="button" class="preset" data-duration="30" aria-pressed="false">
+            <span class="preset-time">30s</span>
+            <span class="preset-name">Scene</span>
+          </button>
+          <button type="button" class="preset" data-duration="60" aria-pressed="true">
+            <span class="preset-time">60s</span>
+            <span class="preset-name">Take</span>
+          </button>
+          <button type="button" class="preset" data-duration="120" aria-pressed="false">
+            <span class="preset-time">120s</span>
+            <span class="preset-name">Long Cut</span>
+          </button>
+        </div>
+      </section>
 
-    <!-- Record Button -->
-    <button id="recordBtn" class="record-btn">
-      <span class="btn-content">
-        <span class="rec-icon"></span>
-        <span>Action</span>
-      </span>
-    </button>
+      <section class="fields" aria-label="Recording settings">
+        <label class="field" for="duration">
+          <span class="field-label">Scroll duration</span>
+          <span class="field-control">
+            <input type="number" id="duration" value="60" min="5" max="300" inputmode="numeric">
+            <span class="field-unit">sec</span>
+          </span>
+        </label>
 
-    <!-- Status -->
-    <div id="status" class="status"></div>
-    <div class="hint">Keep this tab active while recording</div>
+        <label class="field" for="delay">
+          <span class="field-label">Lead-in</span>
+          <span class="field-control">
+            <input type="number" id="delay" value="2" min="0" max="10" inputmode="numeric">
+            <span class="field-unit">sec</span>
+          </span>
+        </label>
+      </section>
 
-    <!-- Footer decoration -->
-    <div class="footer-deco">
-      <div class="footer-line"></div>
-      <span>★</span>
-      <div class="footer-line"></div>
-    </div>
-  </div>
+      <section class="section">
+        <div class="section-head">
+          <span class="section-title">Export</span>
+          <span class="section-caption">Fast or loopable</span>
+        </div>
+        <div class="format-toggle" role="radiogroup" aria-label="Output format">
+          <button type="button" class="format-option" data-format="webm" aria-pressed="true">
+            <span class="format-name">WebM</span>
+            <span class="format-copy">Best for clean motion and quick export.</span>
+          </button>
+          <button type="button" class="format-option" data-format="gif" aria-pressed="false">
+            <span class="format-name">GIF</span>
+            <span class="format-copy">Loopable share. Slower to encode after capture.</span>
+          </button>
+        </div>
+      </section>
 
-  <script src="popup.js"></script>
+      <button id="recordBtn" class="record-btn" type="button">
+        <span class="record-mark" aria-hidden="true"></span>
+        <span class="record-copy">
+          <span id="recordLabel" class="record-label">Roll Camera</span>
+          <span id="recordMeta" class="record-meta">Saves when the pass is complete.</span>
+        </span>
+        <span class="record-arrow" aria-hidden="true">→</span>
+      </button>
+
+      <p id="status" class="status" data-tone="idle" aria-live="polite"></p>
+
+      <footer class="footer">
+        <span class="footer-line" aria-hidden="true"></span>
+        <span class="footer-copy">Keep the target tab in front</span>
+        <span class="footer-line" aria-hidden="true"></span>
+      </footer>
+    </section>
+  </main>
+
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

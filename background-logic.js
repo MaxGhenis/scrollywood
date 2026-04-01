@@ -1,26 +1,122 @@
 // Background logic - testable functions
 
+import {
+  getScrollBehaviorOverrideCSS,
+  getScrollbarHideCSS,
+  SCROLL_OVERRIDE_ID,
+} from './scroll-utils.js';
+
 let recording = false;
+const DEFAULT_OPTIONS = {
+  duration: 60,
+  delay: 2,
+  format: 'webm',
+};
+
+function normalizeDuration(duration) {
+  const value = Number.parseInt(duration, 10);
+  if (Number.isNaN(value)) {
+    return DEFAULT_OPTIONS.duration;
+  }
+
+  return Math.min(300, Math.max(5, value));
+}
+
+function normalizeDelay(delay) {
+  const value = Number.parseInt(delay, 10);
+  if (Number.isNaN(value)) {
+    return DEFAULT_OPTIONS.delay;
+  }
+
+  return Math.min(10, Math.max(0, value));
+}
+
+function normalizeFormat(format) {
+  return format === 'gif' ? 'gif' : DEFAULT_OPTIONS.format;
+}
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+const PRE_CAPTURE_CSS = `${getScrollBehaviorOverrideCSS()}\n${getScrollbarHideCSS()}`;
+
+async function prepareCaptureSurface(tabId) {
+  await chrome.scripting.executeScript({
+    target: { tabId, allFrames: true },
+    func: (overrideId, css) => {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+
+      const mount = document.head || document.documentElement;
+      if (!mount) {
+        return;
+      }
+
+      let styleOverride = document.getElementById(overrideId);
+      if (!styleOverride) {
+        styleOverride = document.createElement('style');
+        styleOverride.id = overrideId;
+        mount.appendChild(styleOverride);
+      }
+
+      styleOverride.textContent = css;
+    },
+    args: [SCROLL_OVERRIDE_ID, PRE_CAPTURE_CSS],
+  });
+}
+
+async function clearCaptureSurface(tabId) {
+  if (!tabId) {
+    return;
+  }
+
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId, allFrames: true },
+      func: (overrideId) => {
+        if (typeof window.__scrollywoodCancel === 'function') {
+          window.__scrollywoodCancel();
+          return;
+        }
+
+        const styleOverride = document.getElementById(overrideId);
+        if (styleOverride) {
+          styleOverride.remove();
+        }
+      },
+      args: [SCROLL_OVERRIDE_ID],
+    });
+  } catch (error) {
+    console.warn('Failed to clear capture surface:', error);
+  }
+}
+
 export async function startRecording(tabId, duration, delay, format) {
-  if (recording) return;
+  if (!tabId) {
+    return {
+      started: false,
+      message: 'No active tab is available to capture.',
+    };
+  }
+
+  if (recording) {
+    return {
+      started: false,
+      message: 'Recording already in progress.',
+    };
+  }
+
   recording = true;
-  format = format || 'webm';
+  const normalizedDuration = normalizeDuration(duration);
+  const normalizedDelay = normalizeDelay(delay);
+  const normalizedFormat = normalizeFormat(format);
 
   // Show "REC" badge
   chrome.action.setBadgeText({ text: 'REC' });
   chrome.action.setBadgeBackgroundColor({ color: '#ff6b6b' });
 
   try {
-    // Scroll to top first (allFrames to handle iframe-wrapped pages)
-    await chrome.scripting.executeScript({
-      target: { tabId, allFrames: true },
-      func: () => window.scrollTo({ top: 0, behavior: 'instant' }),
-    });
+    await prepareCaptureSurface(tabId);
 
     await sleep(500);
 
@@ -43,15 +139,27 @@ export async function startRecording(tabId, duration, delay, format) {
       action: 'startCapture',
       streamId,
       tabId,
-      duration,
-      delay,
-      format,
+      duration: normalizedDuration,
+      delay: normalizedDelay,
+      format: normalizedFormat,
     });
+
+    return {
+      started: true,
+      duration: normalizedDuration,
+      delay: normalizedDelay,
+      format: normalizedFormat,
+    };
 
   } catch (error) {
     console.error('Recording error:', error);
+    await clearCaptureSurface(tabId);
     recording = false;
     chrome.action.setBadgeText({ text: '' });
+    return {
+      started: false,
+      message: error.message || 'Unable to start recording.',
+    };
   }
 }
 

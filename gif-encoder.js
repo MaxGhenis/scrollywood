@@ -3,15 +3,32 @@
 
 export class GifEncoder {
   constructor(width, height, options = {}) {
+    if (!Number.isInteger(width) || width <= 0 || !Number.isInteger(height) || height <= 0) {
+      throw new Error('GifEncoder width and height must be positive integers.');
+    }
+
     this.width = width;
     this.height = height;
-    this.delay = options.delay || 100; // ms between frames
+    const requestedDelay = options.delay ?? 100;
+    this.delay = Number.isFinite(requestedDelay)
+      ? Math.max(0, Math.round(requestedDelay))
+      : 100; // ms between frames
     this.frames = [];
     this.output = [];
     this.headerWritten = false;
+    this.finished = false;
   }
 
   addFrame(rgbaPixels) {
+    if (this.finished) {
+      throw new Error('Cannot add a frame after finish().');
+    }
+
+    const expectedLength = this.width * this.height * 4;
+    if (rgbaPixels.length !== expectedLength) {
+      throw new Error(`Expected ${expectedLength} RGBA values, received ${rgbaPixels.length}.`);
+    }
+
     if (!this.headerWritten) {
       this._writeHeader();
       this._writeNetscapeExt();
@@ -25,10 +42,15 @@ export class GifEncoder {
   }
 
   finish() {
+    if (this.finished) {
+      return;
+    }
+
     if (!this.headerWritten) {
       this._writeHeader();
     }
     this.output.push(0x3B); // GIF trailer
+    this.finished = true;
   }
 
   getOutput() {

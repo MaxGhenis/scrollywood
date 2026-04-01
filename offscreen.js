@@ -58,7 +58,7 @@ async function startCapture(streamId, tabId, duration, delay, format) {
 
       if (blob.size === 0) {
         console.error('Empty recording - no data captured');
-        chrome.runtime.sendMessage({ action: 'recordingComplete' });
+        chrome.runtime.sendMessage({ action: 'recordingComplete', tabId });
         return;
       }
 
@@ -68,7 +68,7 @@ async function startCapture(streamId, tabId, duration, delay, format) {
         await downloadWebM(blob);
       }
 
-      chrome.runtime.sendMessage({ action: 'recordingComplete' });
+      chrome.runtime.sendMessage({ action: 'recordingComplete', tabId });
     };
 
     mediaRecorder.onerror = (event) => {
@@ -104,7 +104,7 @@ async function startCapture(streamId, tabId, duration, delay, format) {
 
   } catch (error) {
     console.error('Capture error:', error);
-    chrome.runtime.sendMessage({ action: 'recordingComplete' });
+    chrome.runtime.sendMessage({ action: 'recordingComplete', tabId });
   }
 }
 

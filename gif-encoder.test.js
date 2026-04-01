@@ -33,6 +33,16 @@ describe('GifEncoder', () => {
       const encoder = new GifEncoder(320, 240, { delay: 50 });
       expect(encoder.delay).toBe(50);
     });
+
+    it('should preserve an explicit zero frame delay', () => {
+      const encoder = new GifEncoder(320, 240, { delay: 0 });
+      expect(encoder.delay).toBe(0);
+    });
+
+    it('should reject invalid dimensions', () => {
+      expect(() => new GifEncoder(0, 240)).toThrow('positive integers');
+      expect(() => new GifEncoder(320, -1)).toThrow('positive integers');
+    });
   });
 
   describe('GIF header', () => {
@@ -91,6 +101,13 @@ describe('GifEncoder', () => {
       expect(output[output.length - 1]).toBe(0x3B);
     });
 
+    it('should reject frames with the wrong pixel buffer length', () => {
+      const encoder = new GifEncoder(2, 2);
+      expect(() => encoder.addFrame(new Uint8Array([255, 0, 0, 255]))).toThrow(
+        'Expected 16 RGBA values'
+      );
+    });
+
     it('should handle multiple frames', () => {
       const encoder = new GifEncoder(2, 2);
       const red = new Uint8Array([
@@ -133,6 +150,16 @@ describe('GifEncoder', () => {
         .join('');
       expect(outputStr).toContain('NETSCAPE');
     });
+
+    it('should not allow frames after finish', () => {
+      const encoder = new GifEncoder(2, 2);
+      encoder.finish();
+
+      expect(() => encoder.addFrame(new Uint8Array([
+        255, 0, 0, 255, 255, 0, 0, 255,
+        255, 0, 0, 255, 255, 0, 0, 255,
+      ]))).toThrow('Cannot add a frame after finish');
+    });
   });
 
   describe('output', () => {
@@ -155,6 +182,17 @@ describe('GifEncoder', () => {
       expect(blob).toBeInstanceOf(Blob);
       expect(blob.type).toBe('image/gif');
       expect(blob.size).toBeGreaterThan(0);
+    });
+
+    it('should make finish idempotent', () => {
+      const encoder = new GifEncoder(2, 2);
+      encoder.finish();
+      const once = encoder.getOutput().length;
+
+      encoder.finish();
+
+      expect(encoder.getOutput().length).toBe(once);
+      expect(Array.from(encoder.getOutput()).filter(byte => byte === 0x3B)).toHaveLength(1);
     });
   });
 });

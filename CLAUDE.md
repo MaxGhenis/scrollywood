@@ -13,10 +13,10 @@ Scrollywood is a Chrome extension (Manifest V3) that captures smooth scroll vide
 bun install
 
 # Run tests
-bun test
+bun run test
 
 # Run tests in watch mode
-bun test:watch
+bun run test:watch
 
 # Build extension ZIP for Chrome Web Store
 bun run build
@@ -57,6 +57,7 @@ background.js     → Downloads video via chrome.downloads API
 - **background-logic.js**: Testable business logic extracted from the service worker (badge management, offscreen setup, recording state)
 - **scroll-utils.js**: Pure functions for scroll calculations, used in tests
 - **scripts/build.js**: Packages extension files into a ZIP for distribution
+- **popup.html?tab=<id>**: Popup supports a tab override for debugging and automation when opened directly
 
 ## Testing
 
