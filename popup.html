@@ -360,7 +360,7 @@
 
     .format-toggle {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 10px;
     }
 
@@ -721,12 +721,16 @@
       <section class="section">
         <div class="section-head">
           <span class="section-title">Export</span>
-          <span class="section-caption">Fast or loopable</span>
+          <span class="section-caption">Fast, social, or loopable</span>
         </div>
         <div class="format-toggle" role="radiogroup" aria-label="Output format">
           <button type="button" class="format-option" data-format="webm" aria-pressed="true">
             <span class="format-name">WebM</span>
             <span class="format-copy">Best for clean motion and quick export.</span>
+          </button>
+          <button type="button" class="format-option" data-format="mp4" aria-pressed="false">
+            <span class="format-name">MP4</span>
+            <span class="format-copy">Best for social uploads. Needs Chrome MP4 support.</span>
           </button>
           <button type="button" class="format-option" data-format="gif" aria-pressed="false">
             <span class="format-name">GIF</span>

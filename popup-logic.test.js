@@ -28,11 +28,23 @@ describe('popup logic', () => {
     expect(normalizeSettings({
       duration: 500,
       delay: -2,
-      format: 'mp4',
+      format: 'avi',
     })).toEqual({
       duration: 300,
       delay: 0,
       format: 'webm',
+    });
+  });
+
+  it('keeps mp4 as a supported export format', () => {
+    expect(normalizeSettings({
+      duration: 30,
+      delay: 1,
+      format: 'mp4',
+    })).toEqual({
+      duration: 30,
+      delay: 1,
+      format: 'mp4',
     });
   });
 
@@ -66,6 +78,18 @@ describe('popup logic', () => {
       title: '75s GIF with 2s lead-in',
       note: 'Long GIF takes can take a bit to encode after the pass finishes.',
       meta: 'GIF • starts after 2s',
+    });
+  });
+
+  it('describes mp4 as a social-friendly export', () => {
+    expect(buildCapturePlan({
+      duration: 20,
+      delay: 1,
+      format: 'mp4',
+    })).toEqual({
+      title: '20s MP4 with 1s lead-in',
+      note: 'MP4 plays best in social upload flows. Availability depends on Chrome support.',
+      meta: 'MP4 • starts after 1s',
     });
   });
 

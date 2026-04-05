@@ -5,12 +5,17 @@ import {
   getScrollbarHideCSS,
   SCROLL_OVERRIDE_ID,
 } from './scroll-utils.js';
+import {
+  DEFAULT_EXPORT_FORMAT,
+  getUnsupportedFormatMessage,
+  normalizeExportFormat,
+} from './media-format.js';
 
 let recording = false;
 const DEFAULT_OPTIONS = {
   duration: 60,
   delay: 2,
-  format: 'webm',
+  format: DEFAULT_EXPORT_FORMAT,
 };
 
 function normalizeDuration(duration) {
@@ -32,7 +37,7 @@ function normalizeDelay(delay) {
 }
 
 function normalizeFormat(format) {
-  return format === 'gif' ? 'gif' : DEFAULT_OPTIONS.format;
+  return normalizeExportFormat(format);
 }
 
 function sleep(ms) {
@@ -91,6 +96,21 @@ async function clearCaptureSurface(tabId) {
   }
 }
 
+async function isExportFormatSupported(format) {
+  const response = await new Promise((resolve, reject) => {
+    chrome.runtime.sendMessage({ action: 'checkFormatSupport', format }, (result) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+
+      resolve(result || null);
+    });
+  });
+
+  return response?.supported !== false;
+}
+
 export async function startRecording(tabId, duration, delay, format) {
   if (!tabId) {
     return {
@@ -116,6 +136,18 @@ export async function startRecording(tabId, duration, delay, format) {
   chrome.action.setBadgeBackgroundColor({ color: '#ff6b6b' });
 
   try {
+    // Create offscreen document for MediaRecorder
+    await setupOffscreenDocument();
+
+    if (!(await isExportFormatSupported(normalizedFormat))) {
+      recording = false;
+      chrome.action.setBadgeText({ text: '' });
+      return {
+        started: false,
+        message: getUnsupportedFormatMessage(normalizedFormat),
+      };
+    }
+
     await prepareCaptureSurface(tabId);
 
     await sleep(500);
@@ -130,9 +162,6 @@ export async function startRecording(tabId, duration, delay, format) {
         }
       });
     });
-
-    // Create offscreen document for MediaRecorder
-    await setupOffscreenDocument();
 
     // Send stream ID to offscreen document to start recording
     chrome.runtime.sendMessage({

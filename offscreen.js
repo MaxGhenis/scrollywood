@@ -1,9 +1,22 @@
+import {
+  buildTimestampedFilename,
+  getUnsupportedFormatMessage,
+  normalizeExportFormat,
+  resolveRecorderProfile,
+} from './media-format.js';
+
 // Offscreen document for MediaRecorder (needs DOM context)
 
 let mediaRecorder = null;
 let recordedChunks = [];
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'checkFormatSupport') {
+    sendResponse({
+      supported: resolveRecorderProfile(message.format) !== null,
+    });
+    return true;
+  }
   if (message.action === 'startCapture') {
     startCapture(message.streamId, message.tabId, message.duration, message.delay, message.format);
     return true;
@@ -19,7 +32,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 async function startCapture(streamId, tabId, duration, delay, format) {
-  format = format || 'webm';
+  format = normalizeExportFormat(format);
 
   try {
     // Get the media stream from the streamId
@@ -35,10 +48,15 @@ async function startCapture(streamId, tabId, duration, delay, format) {
       },
     });
 
+    const recorderProfile = resolveRecorderProfile(format);
+    if (!recorderProfile) {
+      throw new Error(getUnsupportedFormatMessage(format));
+    }
+
     // Set up MediaRecorder
     recordedChunks = [];
     mediaRecorder = new MediaRecorder(stream, {
-      mimeType: 'video/webm;codecs=vp9',
+      mimeType: recorderProfile.mimeType,
       videoBitsPerSecond: 16000000,
     });
 
@@ -53,7 +71,7 @@ async function startCapture(streamId, tabId, duration, delay, format) {
       console.log('MediaRecorder stopped, chunks:', recordedChunks.length);
       stream.getTracks().forEach(track => track.stop());
 
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const blob = new Blob(recordedChunks, { type: recorderProfile.blobType });
       console.log('Blob size:', blob.size, 'bytes');
 
       if (blob.size === 0) {
@@ -65,7 +83,7 @@ async function startCapture(streamId, tabId, duration, delay, format) {
       if (format === 'gif') {
         await convertToGif(blob);
       } else {
-        await downloadWebM(blob);
+        await downloadVideo(blob, recorderProfile.extension);
       }
 
       chrome.runtime.sendMessage({ action: 'recordingComplete', tabId });
@@ -108,10 +126,9 @@ async function startCapture(streamId, tabId, duration, delay, format) {
   }
 }
 
-// Download WebM video (original behavior)
-async function downloadWebM(blob) {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const filename = `scrollywood-${timestamp}.webm`;
+// Download captured video to disk
+async function downloadVideo(blob, extension) {
+  const filename = buildTimestampedFilename(extension);
 
   // Download via blob URL. Try multiple approaches since offscreen
   // documents have limited API access and base64 via sendMessage
@@ -306,7 +323,7 @@ async function convertToGif(webmBlob) {
       text: 'ERR',
     });
     // Fall back to WebM
-    await downloadWebM(webmBlob);
+    await downloadVideo(webmBlob, 'webm');
   }
 }
 

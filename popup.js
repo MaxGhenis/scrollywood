@@ -8,6 +8,7 @@ import {
   parseTabOverride,
   getTabContext,
 } from './popup-logic.js';
+import { resolveRecorderProfile } from './media-format.js';
 
 const panel = document.getElementById('panel');
 const targetChip = document.getElementById('targetChip');
@@ -28,6 +29,12 @@ let currentFormat = DEFAULT_SETTINGS.format;
 let currentTab = null;
 let currentlyRecording = false;
 const overrideTabId = parseTabOverride(window.location.search);
+const mp4Supported = resolveRecorderProfile(
+  'mp4',
+  typeof MediaRecorder?.isTypeSupported === 'function'
+    ? MediaRecorder.isTypeSupported.bind(MediaRecorder)
+    : null
+) !== null;
 
 function sendRuntimeMessage(message) {
   return new Promise((resolve, reject) => {
@@ -86,7 +93,9 @@ function applySettings(settings) {
   const normalized = normalizeSettings(settings);
   durationInput.value = String(normalized.duration);
   delayInput.value = String(normalized.delay);
-  currentFormat = normalized.format;
+  currentFormat = normalized.format === 'mp4' && !mp4Supported
+    ? DEFAULT_SETTINGS.format
+    : normalized.format;
 }
 
 function setStatus(message, tone = 'idle') {
@@ -101,7 +110,8 @@ function setControlsDisabled(disabled) {
     button.disabled = disabled;
   });
   formatButtons.forEach((button) => {
-    button.disabled = disabled;
+    const unsupportedMp4 = button.dataset.format === 'mp4' && !mp4Supported;
+    button.disabled = disabled || unsupportedMp4;
   });
 }
 
@@ -116,6 +126,16 @@ function syncFormatSelection(format) {
   formatButtons.forEach((button) => {
     const pressed = button.dataset.format === format;
     button.setAttribute('aria-pressed', String(pressed));
+  });
+}
+
+function syncFormatAvailability() {
+  formatButtons.forEach((button) => {
+    if (button.dataset.format === 'mp4' && !mp4Supported) {
+      button.title = 'MP4 export is not supported in this Chrome build.';
+    } else {
+      button.removeAttribute('title');
+    }
   });
 }
 
@@ -140,6 +160,7 @@ function renderPlan() {
 
   syncPresetSelection(settings.duration);
   syncFormatSelection(settings.format);
+  syncFormatAvailability();
 
   writeStoredSettings(settings);
   return settings;
@@ -187,6 +208,7 @@ function showReadyState() {
   setControlsDisabled(false);
   recordLabel.textContent = 'Roll Camera';
   recordMeta.textContent = getRecordButtonMeta(readSettingsFromForm());
+  syncFormatAvailability();
 }
 
 async function refreshCurrentTab() {

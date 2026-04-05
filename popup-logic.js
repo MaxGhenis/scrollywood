@@ -1,7 +1,12 @@
+import {
+  DEFAULT_EXPORT_FORMAT,
+  normalizeExportFormat,
+} from './media-format.js';
+
 export const DEFAULT_SETTINGS = {
   duration: 60,
   delay: 2,
-  format: 'webm',
+  format: DEFAULT_EXPORT_FORMAT,
 };
 
 export const DURATION_LIMITS = {
@@ -16,7 +21,6 @@ export const DELAY_LIMITS = {
 
 export const STORAGE_KEY = 'scrollywood.popupSettings';
 
-const SUPPORTED_FORMATS = new Set(['webm', 'gif']);
 const BLOCKED_PROTOCOLS = new Set([
   'about:',
   'chrome:',
@@ -40,7 +44,7 @@ export function normalizeSettings(settings = {}) {
   const normalized = {
     duration: clampNumber(settings.duration, DURATION_LIMITS, DEFAULT_SETTINGS.duration),
     delay: clampNumber(settings.delay, DELAY_LIMITS, DEFAULT_SETTINGS.delay),
-    format: SUPPORTED_FORMATS.has(settings.format) ? settings.format : DEFAULT_SETTINGS.format,
+    format: normalizeExportFormat(settings.format),
   };
 
   return normalized;
@@ -81,6 +85,9 @@ export function buildCapturePlan(settings = {}) {
     : `starts after ${normalized.delay}s`;
 
   let note = 'WebM exports fastest and keeps the cleanest motion.';
+  if (normalized.format === 'mp4') {
+    note = 'MP4 plays best in social upload flows. Availability depends on Chrome support.';
+  }
   if (normalized.format === 'gif' && normalized.duration < 45) {
     note = 'GIF adds a loopable export and encodes right after capture.';
   }
@@ -97,6 +104,9 @@ export function buildCapturePlan(settings = {}) {
 
 export function getRecordButtonMeta(settings = {}) {
   const normalized = normalizeSettings(settings);
+  if (normalized.format === 'mp4') {
+    return 'Best for platforms that reject WebM.';
+  }
   if (normalized.format === 'gif') {
     return 'Encodes after capture finishes.';
   }

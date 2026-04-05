@@ -10,6 +10,10 @@ import {
 } from './scroll-utils.js';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === 'checkFormatSupport') {
+    return false;
+  }
+
   console.log('Service worker received message:', message.action, message);
 
   if (message.action === 'startRecording') {

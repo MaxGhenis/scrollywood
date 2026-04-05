@@ -44,6 +44,11 @@ describe('Scrollywood Background', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockChrome.runtime.lastError = null;
+    mockChrome.runtime.sendMessage.mockImplementation((message, callback) => {
+      if (message?.action === 'checkFormatSupport' && typeof callback === 'function') {
+        callback({ supported: true });
+      }
+    });
     resetRecordingState();
   });
 
@@ -180,7 +185,7 @@ describe('Scrollywood Background', () => {
       mockChrome.tabCapture.getMediaStreamId.mockImplementation((opts, cb) => cb('stream-123'));
       mockChrome.runtime.getContexts.mockResolvedValue([{ type: 'OFFSCREEN_DOCUMENT' }]);
 
-      const result = await startRecording(123, 999, -3, 'mp4');
+      const result = await startRecording(123, 999, -3, 'avi');
 
       expect(result).toEqual({
         started: true,
@@ -196,6 +201,44 @@ describe('Scrollywood Background', () => {
         delay: 0,
         format: 'webm',
       });
+    });
+
+    it('should preserve mp4 as a supported export format', async () => {
+      mockChrome.scripting.executeScript.mockResolvedValue([]);
+      mockChrome.tabCapture.getMediaStreamId.mockImplementation((opts, cb) => cb('stream-123'));
+      mockChrome.runtime.getContexts.mockResolvedValue([{ type: 'OFFSCREEN_DOCUMENT' }]);
+
+      const result = await startRecording(123, 45, 1, 'mp4');
+
+      expect(result).toEqual({
+        started: true,
+        duration: 45,
+        delay: 1,
+        format: 'mp4',
+      });
+      expect(mockChrome.runtime.sendMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'startCapture',
+          format: 'mp4',
+        })
+      );
+    });
+
+    it('should fail early when the selected export format is unsupported', async () => {
+      mockChrome.runtime.sendMessage.mockImplementation((message, callback) => {
+        if (message?.action === 'checkFormatSupport' && typeof callback === 'function') {
+          callback({ supported: false });
+        }
+      });
+      mockChrome.runtime.getContexts.mockResolvedValue([{ type: 'OFFSCREEN_DOCUMENT' }]);
+
+      const result = await startRecording(123, 45, 1, 'mp4');
+
+      expect(result).toEqual({
+        started: false,
+        message: 'MP4 export is not supported in this Chrome build. Try WebM or GIF.',
+      });
+      expect(mockChrome.tabCapture.getMediaStreamId).not.toHaveBeenCalled();
     });
   });
 
